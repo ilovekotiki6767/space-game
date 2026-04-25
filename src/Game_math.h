@@ -1,6 +1,9 @@
 #ifndef GAMING_GAME_MATH_H
 #define GAMING_GAME_MATH_H
 
+#define Kilobytes(n) ((n) * 1024LL)
+#define Megabytes(n) ((n) * Kilobytes(1024))
+
 // Math runtime
 
 #define PI 3.141592653589793238462643383279502884f
@@ -30,7 +33,7 @@ static float Sin(float x) {
     if (x < -PI) {
         x += pi2;
     }
-    
+
     // x - x^3 / 6 + x^5 / 120 - x^7 / 5040 + x^9/362880
     const float x2 = x * x;
     return x * (1.0f - x2 * (1.0f / 6.0f - x2 * (1.0f / 120.0f - x2 * (1.0f / 5040.0f - x2 / 362880.0f))));

@@ -336,8 +336,7 @@ int main(void) {
     Render render = {0};
     InitializeRender(&render, pipeline, vertex_buffer, index_buffer, 36);
 
-    // TODO: memory macros such as Megabytes
-    int permanent_storage_size = 64 * 1024 * 1024;
+    int permanent_storage_size = Megabytes(64);
     void *permanent_storage = SDL_malloc(permanent_storage_size);
     SDL_memset(permanent_storage, 0, permanent_storage_size);
 
