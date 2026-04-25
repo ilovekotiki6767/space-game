@@ -2,11 +2,58 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
-// TODO: The game will be DLopen'd
-#include "Game_main.c"
-#include "Game_math.h"
 
-// -- math --
+#include "Game_math.h"
+#include "Game_platform.h"
+
+#if defined(SDL_PLATFORM_WINDOWS)
+#define GAME_LIB_PATH "game.dll"
+#elif defined(SDL_PLATFORM_MACOS)
+#define GAME_LIB_PATH "./game.dylib"
+#else
+#define GAME_LIB_PATH "./game.so"
+#endif
+
+typedef struct {
+    void *handle;
+    Game_UpdateAndRender_Func update_and_render;
+    Uint64 last_write_time;
+} GameCode;
+
+static Uint64 GetGameCodeWriteTime(const char *path) {
+    SDL_PathInfo info;
+
+    if (SDL_GetPathInfo(path, &info)) {
+        return info.modify_time;
+    }
+
+    return 0;
+}
+
+static GameCode LoadGameCode(const char *path) {
+    GameCode code = {
+        .handle = SDL_LoadObject(path),
+        .last_write_time = GetGameCodeWriteTime(path),
+    };
+
+    if (code.handle) {
+        code.update_and_render = (Game_UpdateAndRender_Func) SDL_LoadFunction(code.handle, "UpdateAndRender");
+    }
+
+    if (!code.update_and_render) {
+        SDL_Log("%s", SDL_GetError());
+    }
+
+    return code;
+}
+
+static void UnloadGameCode(GameCode *code) {
+    if (code->handle) {
+        SDL_UnloadObject(code->handle);
+        code->handle = NULL;
+        code->update_and_render = NULL;
+    }
+}
 
 Vertex vertices[] = {
     // Front (Red)
@@ -77,12 +124,6 @@ SDL_GPUShader *CreateGPUShader(SDL_GPUDevice *device, const char *filepath, cons
     return shader;
 }
 
-// -- render --
-
-typedef struct {
-    Mat4X4 transform;
-} RenderEntry;
-
 typedef struct {
     SDL_GPUGraphicsPipeline *pipeline;
     SDL_GPUBuffer *vertex_buffer;
@@ -90,17 +131,18 @@ typedef struct {
     int index_count;
 } Render;
 
-static void Render_Initialize(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
-                              SDL_GPUBuffer *index_buffer, const int index_count) {
+static void InitializeRender(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
+                             SDL_GPUBuffer *index_buffer, const int index_count) {
     render->pipeline = pipeline;
     render->vertex_buffer = vertex_buffer;
     render->index_buffer = index_buffer;
     render->index_count = index_count;
 }
 
-static void Render_FlushEntries(Render *render, Game_Platform *platform, SDL_GPUCommandBuffer *command_buffer,
-                                SDL_GPURenderPass *render_pass,
-                                const Mat4X4 view_projection) {
+static void FlushRenderEntries(const Render *render, const Game_Platform *platform,
+                               SDL_GPUCommandBuffer *command_buffer,
+                               SDL_GPURenderPass *render_pass,
+                               const Mat4X4 view_projection) {
     if (platform->render_entry_count == 0) {
         return;
     }
@@ -292,9 +334,19 @@ int main(void) {
     SDL_ReleaseGPUShader(device, fragment_shader);
 
     Render render = {0};
-    Render_Initialize(&render, pipeline, vertex_buffer, index_buffer, 36);
+    InitializeRender(&render, pipeline, vertex_buffer, index_buffer, 36);
 
-    Game_Platform platform = {0};
+    // TODO: memory macros such as Megabytes
+    int permanent_storage_size = 64 * 1024 * 1024;
+    void *permanent_storage = SDL_malloc(permanent_storage_size);
+    SDL_memset(permanent_storage, 0, permanent_storage_size);
+
+    Game_Platform platform = {
+        .permanent_storage = permanent_storage,
+        .permanent_storage_size = permanent_storage_size,
+    };
+
+    GameCode game_code = LoadGameCode(GAME_LIB_PATH);
 
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
@@ -303,7 +355,6 @@ int main(void) {
 
     Uint64 last_counter = SDL_GetPerformanceCounter();
     Uint64 performance_frequency = SDL_GetPerformanceFrequency();
-    float time = 0.0f;
 
     bool running = true;
     while (running) {
@@ -325,10 +376,15 @@ int main(void) {
             }
         }
 
+        Uint64 new_write_time = GetGameCodeWriteTime(GAME_LIB_PATH);
+        if (new_write_time != game_code.last_write_time) {
+            UnloadGameCode(&game_code);
+            game_code = LoadGameCode(GAME_LIB_PATH);
+        }
+
         Uint64 current_counter = SDL_GetPerformanceCounter();
         float delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
         last_counter = current_counter;
-        time += delta_time;
 
         if (width != depth_texture_width || height != depth_texture_height) {
             if (depth_texture) {
@@ -364,7 +420,10 @@ int main(void) {
         }
 
         platform.render_entry_count = 0;
-        UpdateAndRender(&platform, delta_time);
+
+        if (game_code.update_and_render) {
+            game_code.update_and_render(&platform, delta_time);
+        }
 
         SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
         if (!command_buffer) {
@@ -406,7 +465,7 @@ int main(void) {
             Mat4X4 projection = Matrix_Perspective(SDL_PI_F / 4.0f, (float) width / (float) height, 0.1f, 100.0f);
             Mat4X4 view_projection = Matrix_Multiply(projection, view);
 
-            Render_FlushEntries(&render, &platform, command_buffer, render_pass, view_projection);;
+            FlushRenderEntries(&render, &platform, command_buffer, render_pass, view_projection);;
 
             SDL_EndGPURenderPass(render_pass);
         }

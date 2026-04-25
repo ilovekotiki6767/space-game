@@ -1,9 +1,20 @@
 #include "Game_platform.h"
 
-static float time = 0.0f;
+typedef struct {
+    float rotation;
 
-static void UpdateAndRender(Game_Platform *platform, const float delta_time) {
-    time += delta_time;
+    Bool initialized;
+} State;
 
-    Game_PushRenderEntry(platform, Matrix_RotationY(time));
+void UpdateAndRender(Game_Platform *platform, const float delta_time) {
+    State *state = platform->permanent_storage;
+
+    if (!state->initialized) {
+        // this must always be here!
+        state->initialized = True;
+    }
+
+    state->rotation += 1.0f * delta_time;
+
+    Game_PushRenderEntry(platform, Matrix_RotationY(state->rotation));
 }
