@@ -360,6 +360,7 @@ int main(void) {
         },
     };
 
+    // TODO: MSAA
     SDL_GPUGraphicsPipeline *pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeline_create_info);
     if (!pipeline) {
         SDL_Log("%s", SDL_GetError());
@@ -373,6 +374,10 @@ int main(void) {
 
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
+
+    Uint64 last_counter = SDL_GetPerformanceCounter();
+    Uint64 performance_frequency = SDL_GetPerformanceFrequency();
+    float time = 0.0f;
 
     bool running = true;
     while (running) {
@@ -445,8 +450,12 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            // TODO: delta time
-            float time = (float) SDL_GetTicks() / 1000.0f;
+            Uint64 current_counter = SDL_GetPerformanceCounter();
+            float delta_time = (float)(current_counter - last_counter) / (float)performance_frequency;
+            last_counter = current_counter;
+
+            time += delta_time;
+
             Mat4X4 model = Matrix_RotationY(time);
             Mat4X4 view = Matrix_LookAt(Vector3(0, 0, 5), Vector3(0, 0, 0), Vector3(0, 1, 0));
             Mat4X4 projection = Matrix_Perspective(SDL_PI_F / 4.0f, (float) width / (float) height, 0.1f, 100.0f);
