@@ -14,7 +14,12 @@ void UpdateAndRender(Game_Platform *platform, const float delta_time) {
         state->initialized = True;
     }
 
-    state->rotation += 1.0f * delta_time;
+    if (IsDown(platform->input[GAME_KEY_A])) {
+        state->rotation -= 2.0f * delta_time;
+    }
+    if (IsDown(platform->input[GAME_KEY_D])) {
+        state->rotation += 2.0f * delta_time;
+    }
 
     Game_PushRenderEntry(platform, Matrix_RotationY(state->rotation));
 }

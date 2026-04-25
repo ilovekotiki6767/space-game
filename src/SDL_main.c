@@ -164,6 +164,19 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
     }
 }
 
+static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
+    switch (scancode) {
+        case SDL_SCANCODE_W: return GAME_KEY_W;
+        case SDL_SCANCODE_A: return GAME_KEY_A;
+        case SDL_SCANCODE_S: return GAME_KEY_S;
+        case SDL_SCANCODE_D: return GAME_KEY_D;
+        case SDL_SCANCODE_SPACE: return GAME_KEY_SPACE;
+        case SDL_SCANCODE_LCTRL: return GAME_KEY_LEFT_CTRL;
+
+        default: return GAME_KEY_NONE;
+    }
+}
+
 int main(void) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         SDL_Log("%s", SDL_GetError());
@@ -357,6 +370,10 @@ int main(void) {
 
     bool running = true;
     while (running) {
+        for (int i = 0; i < GAME_KEY_COUNT; ++i) {
+            platform.input[i].half_transition_count = 0;
+        }
+
         SDL_Event event;
 
         while (SDL_PollEvent(&event)) {
@@ -371,6 +388,25 @@ int main(void) {
                 }
                 break;
 
+
+                case SDL_EVENT_KEY_DOWN:
+                case SDL_EVENT_KEY_UP: {
+                    if (!event.key.repeat) {
+                        Game_Key key = SDLKeyToGameKey(event.key.scancode);
+
+                        if (key != GAME_KEY_NONE) {
+                            Game_ButtonState *button = &platform.input[key];
+
+                            if (event.type == SDL_EVENT_KEY_DOWN) {
+                                button->ended_down = true;
+                            } else {
+                                button->ended_down = false;
+                            }
+                            button->half_transition_count++;
+                        }
+                    }
+                }
+                break;
                 default: break;
             }
         }
