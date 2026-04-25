@@ -473,6 +473,7 @@ int main(void) {
         SDL_SubmitGPUCommandBuffer(command_buffer);
     }
 
+    SDL_free(permanent_storage);
     if (depth_texture) {
         SDL_ReleaseGPUTexture(device, depth_texture);
     }
