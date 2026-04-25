@@ -2,140 +2,11 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
+// TODO: The game will be DLopen'd
+#include "Game_main.c"
+#include "Game_math.h"
 
 // -- math --
-
-// NOTE: see https://github.com/libsdl-org/SDL_ttf/blob/main/examples/testgputext/SDL_math3d.h
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-} Vec3;
-
-static Vec3 Vector3(const float x, const float y, const float z) {
-    return (Vec3){.x = x, .y = y, .z = z};
-}
-
-static Vec3 Vec3_Sub(const Vec3 vec1, const Vec3 vec2) {
-    return Vector3(vec1.x - vec2.x, vec1.y - vec2.y, vec1.z - vec2.z);
-}
-
-static Vec3 Vec3_Cross(const Vec3 vec1, const Vec3 vec2) {
-    return Vector3(
-        vec1.y * vec2.z - vec1.z * vec2.y,
-        vec1.z * vec2.x - vec1.x * vec2.z,
-        vec1.x * vec2.y - vec1.y * vec2.x
-    );
-}
-
-static float Vec3_Magnitude(const Vec3 vec) {
-    return SDL_sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
-}
-
-static Vec3 Vec3_Normalize(const Vec3 vec) {
-    const float mag = Vec3_Magnitude(vec);
-
-    if (mag == 0) {
-        return (Vec3){0, 0, 0};
-    }
-
-    if (mag == 1) {
-        return vec;
-    }
-
-    return (Vec3){vec.x / mag, vec.y / mag, vec.z / mag};
-}
-
-static float Vec3_Dot(const Vec3 vec1, const Vec3 vec2) {
-    return vec1.x * vec2.x + vec1.y * vec2.y + vec1.z * vec2.z;
-}
-
-/**
- * The matrix is stored in column major format
- **/
-typedef struct {
-    union {
-        float m[4][4];
-    };
-} Mat4X4;
-
-static Mat4X4 Matrix4X4(
-    const float m00, const float m10, const float m20, const float m30,
-    const float m01, const float m11, const float m21, const float m31,
-    const float m02, const float m12, const float m22, const float m32,
-    const float m03, const float m13, const float m23, const float m33
-) {
-    return (Mat4X4){
-        .m[0][0] = m00, .m[1][0] = m10, .m[2][0] = m20, .m[3][0] = m30,
-        .m[0][1] = m01, .m[1][1] = m11, .m[2][1] = m21, .m[3][1] = m31,
-        .m[0][2] = m02, .m[1][2] = m12, .m[2][2] = m22, .m[3][2] = m32,
-        .m[0][3] = m03, .m[1][3] = m13, .m[2][3] = m23, .m[3][3] = m33
-    };
-}
-
-static Mat4X4 Matrix_Perspective(const float fov_y, const float aspect_ratio, const float near, const float far) {
-    const float n = near;
-    const float f = far;
-    const float t = SDL_tanf(fov_y / 2.0f) * n;
-    const float b = -t;
-    const float r = t * aspect_ratio;
-    const float l = -r;
-
-    return Matrix4X4(
-        2 * n / (r - l), 0, (r + l) / (r - l), 0,
-        0, 2 * n / (t - b), (t + b) / (t - b), 0,
-        0, 0, -(f + n) / (f - n), -(2 * n * f) / (f - n),
-        0, 0, -1, 1
-    );
-}
-
-static Mat4X4 Matrix_LookAt(const Vec3 pos, const Vec3 target, const Vec3 up) {
-    const Vec3 d = Vec3_Normalize(Vec3_Sub(target, pos));
-    Vec3 u = Vec3_Normalize(up);
-    const Vec3 r = Vec3_Normalize(Vec3_Cross(u, d));
-    u = Vec3_Cross(r, d);
-
-    return Matrix4X4(
-        r.x, r.y, r.z, -Vec3_Dot(r, pos),
-        u.x, u.y, u.z, -Vec3_Dot(u, pos),
-        -d.x, -d.y, -d.z, Vec3_Dot(d, pos),
-        0, 0, 0, 1
-    );
-}
-
-static Mat4X4 Matrix_RotationY(const float angle) {
-    const float cos = SDL_cosf(angle);
-    const float sin = SDL_sinf(angle);
-
-    return Matrix4X4(
-        cos, 0, sin, 0,
-        0, 1, 0, 0,
-        -sin, 0, cos, 0,
-        0, 0, 0, 1
-    );
-}
-
-static Mat4X4 Matrix_Multiply(const Mat4X4 mat1, const Mat4X4 mat2) {
-    Mat4X4 res;
-
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            float sum = 0;
-            for (int x = 0; x < 4; x++) {
-                sum += mat1.m[x][j] * mat2.m[i][x];
-            }
-            res.m[i][j] = sum;
-        }
-    }
-
-    return res;
-}
-
-typedef struct {
-    float x, y, z;
-    float r, g, b, a;
-} Vertex;
 
 Vertex vertices[] = {
     // Front (Red)
@@ -217,28 +88,20 @@ typedef struct {
     SDL_GPUBuffer *vertex_buffer;
     SDL_GPUBuffer *index_buffer;
     int index_count;
-
-    RenderEntry entries[1024];
-    int entry_count;
 } Render;
 
 static void Render_Initialize(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
-                             SDL_GPUBuffer *index_buffer, const int index_count) {
+                              SDL_GPUBuffer *index_buffer, const int index_count) {
     render->pipeline = pipeline;
     render->vertex_buffer = vertex_buffer;
     render->index_buffer = index_buffer;
     render->index_count = index_count;
-    render->entry_count = 0;
 }
 
-static void Render_PushEntry(Render *render, const Mat4X4 transform) {
-    SDL_assert(render->entry_count < SDL_arraysize(render->entries));
-    render->entries[render->entry_count++].transform = transform;
-}
-
-static void Render_FlushEntries(Render *render, SDL_GPUCommandBuffer *command_buffer, SDL_GPURenderPass *render_pass,
-                               const Mat4X4 view_projection) {
-    if (render->entry_count == 0) {
+static void Render_FlushEntries(Render *render, Game_Platform *platform, SDL_GPUCommandBuffer *command_buffer,
+                                SDL_GPURenderPass *render_pass,
+                                const Mat4X4 view_projection) {
+    if (platform->render_entry_count == 0) {
         return;
     }
 
@@ -252,13 +115,11 @@ static void Render_FlushEntries(Render *render, SDL_GPUCommandBuffer *command_bu
                                .offset = 0,
                            }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
-    for (int i = 0; i < render->entry_count; ++i) {
-        Mat4X4 mvp = Matrix_Multiply(view_projection, render->entries[i].transform);
+    for (int i = 0; i < platform->render_entry_count; ++i) {
+        Mat4X4 mvp = Matrix_Multiply(view_projection, platform->render_entries[i].transform);
         SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
         SDL_DrawGPUIndexedPrimitives(render_pass, render->index_count, 1, 0, 0, 0);
     }
-
-    render->entry_count = 0;
 }
 
 int main(void) {
@@ -433,6 +294,8 @@ int main(void) {
     Render render = {0};
     Render_Initialize(&render, pipeline, vertex_buffer, index_buffer, 36);
 
+    Game_Platform platform = {0};
+
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
     SDL_GPUTexture *msaa_texture = NULL;
@@ -500,8 +363,8 @@ int main(void) {
             depth_texture_width = width, depth_texture_height = height;
         }
 
-        Mat4X4 model = Matrix_RotationY(time);
-        Render_PushEntry(&render, model);
+        platform.render_entry_count = 0;
+        UpdateAndRender(&platform, delta_time);
 
         SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
         if (!command_buffer) {
@@ -543,7 +406,7 @@ int main(void) {
             Mat4X4 projection = Matrix_Perspective(SDL_PI_F / 4.0f, (float) width / (float) height, 0.1f, 100.0f);
             Mat4X4 view_projection = Matrix_Multiply(projection, view);
 
-            Render_FlushEntries(&render, command_buffer, render_pass, view_projection);;
+            Render_FlushEntries(&render, &platform, command_buffer, render_pass, view_projection);;
 
             SDL_EndGPURenderPass(render_pass);
         }
