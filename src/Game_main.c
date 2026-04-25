@@ -10,8 +10,6 @@ void UpdateAndRender(Game_Platform *platform, const float delta_time) {
     State *state = platform->permanent_storage;
 
     if (!state->initialized) {
-        state->rotation = 0.0f;
-
         // this must always be here!
         state->initialized = True;
     }
