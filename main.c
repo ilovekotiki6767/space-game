@@ -1,6 +1,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
 
+// -- math --
+
 // NOTE: see https://github.com/libsdl-org/SDL_ttf/blob/main/examples/testgputext/SDL_math3d.h
 
 typedef struct {
@@ -202,6 +204,61 @@ SDL_GPUShader *CreateGPUShader(SDL_GPUDevice *device, const char *filepath, cons
     return shader;
 }
 
+// -- render --
+
+typedef struct {
+    Mat4X4 transform;
+} RenderEntry;
+
+typedef struct {
+    SDL_GPUGraphicsPipeline *pipeline;
+    SDL_GPUBuffer *vertex_buffer;
+    SDL_GPUBuffer *index_buffer;
+    int index_count;
+
+    RenderEntry entries[1024];
+    int entry_count;
+} Render;
+
+static void Render_Initialize(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
+                             SDL_GPUBuffer *index_buffer, const int index_count) {
+    render->pipeline = pipeline;
+    render->vertex_buffer = vertex_buffer;
+    render->index_buffer = index_buffer;
+    render->index_count = index_count;
+    render->entry_count = 0;
+}
+
+static void Render_PushEntry(Render *render, const Mat4X4 transform) {
+    SDL_assert(render->entry_count < SDL_arraysize(render->entries));
+    render->entries[render->entry_count++].transform = transform;
+}
+
+static void Render_FlushEntries(Render *render, SDL_GPUCommandBuffer *command_buffer, SDL_GPURenderPass *render_pass,
+                               const Mat4X4 view_projection) {
+    if (render->entry_count == 0) {
+        return;
+    }
+
+    SDL_BindGPUGraphicsPipeline(render_pass, render->pipeline);
+    SDL_BindGPUVertexBuffers(render_pass, 0, &(SDL_GPUBufferBinding){
+                                 .buffer = render->vertex_buffer,
+                                 .offset = 0,
+                             }, 1);
+    SDL_BindGPUIndexBuffer(render_pass, &(SDL_GPUBufferBinding){
+                               .buffer = render->index_buffer,
+                               .offset = 0,
+                           }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+    for (int i = 0; i < render->entry_count; ++i) {
+        Mat4X4 mvp = Matrix_Multiply(view_projection, render->entries[i].transform);
+        SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
+        SDL_DrawGPUIndexedPrimitives(render_pass, render->index_count, 1, 0, 0, 0);
+    }
+
+    render->entry_count = 0;
+}
+
 int main(void) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         SDL_Log("%s", SDL_GetError());
@@ -371,6 +428,9 @@ int main(void) {
     SDL_ReleaseGPUShader(device, vertex_shader);
     SDL_ReleaseGPUShader(device, fragment_shader);
 
+    Render render = {0};
+    Render_Initialize(&render, pipeline, vertex_buffer, index_buffer, 36);
+
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
     SDL_GPUTexture *msaa_texture = NULL;
@@ -399,6 +459,11 @@ int main(void) {
                 default: break;
             }
         }
+
+        Uint64 current_counter = SDL_GetPerformanceCounter();
+        float delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
+        last_counter = current_counter;
+        time += delta_time;
 
         if (width != depth_texture_width || height != depth_texture_height) {
             if (depth_texture) {
@@ -432,6 +497,9 @@ int main(void) {
 
             depth_texture_width = width, depth_texture_height = height;
         }
+
+        Mat4X4 model = Matrix_RotationY(time);
+        Render_PushEntry(&render, model);
 
         SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
         if (!command_buffer) {
@@ -469,29 +537,11 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            Uint64 current_counter = SDL_GetPerformanceCounter();
-            float delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
-            last_counter = current_counter;
-
-            time += delta_time;
-
-            Mat4X4 model = Matrix_RotationY(time);
             Mat4X4 view = Matrix_LookAt(Vector3(0, 0, 5), Vector3(0, 0, 0), Vector3(0, 1, 0));
             Mat4X4 projection = Matrix_Perspective(SDL_PI_F / 4.0f, (float) width / (float) height, 0.1f, 100.0f);
-            Mat4X4 mvp = Matrix_Multiply(projection, Matrix_Multiply(view, model));
+            Mat4X4 view_projection = Matrix_Multiply(projection, view);
 
-            SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
-            SDL_BindGPUVertexBuffers(render_pass, 0, &(SDL_GPUBufferBinding){
-                                         .buffer = vertex_buffer,
-                                         .offset = 0,
-                                     }, 1);
-            SDL_BindGPUIndexBuffer(render_pass, &(SDL_GPUBufferBinding){
-                                       .buffer = index_buffer,
-                                       .offset = 0,
-                                   }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
-
-            SDL_DrawGPUIndexedPrimitives(render_pass, 36, 1, 0, 0, 0);
+            Render_FlushEntries(&render, command_buffer, render_pass, view_projection);;
 
             SDL_EndGPURenderPass(render_pass);
         }
