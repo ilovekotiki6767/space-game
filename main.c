@@ -339,7 +339,7 @@ int main(void) {
         },
 
         .multisample_state = (SDL_GPUMultisampleState){
-            .sample_count = SDL_GPU_SAMPLECOUNT_1,
+            .sample_count = SDL_GPU_SAMPLECOUNT_4,
         },
 
         .depth_stencil_state = (SDL_GPUDepthStencilState){
@@ -360,7 +360,6 @@ int main(void) {
         },
     };
 
-    // TODO: MSAA
     SDL_GPUGraphicsPipeline *pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeline_create_info);
     if (!pipeline) {
         SDL_Log("%s", SDL_GetError());
@@ -374,6 +373,8 @@ int main(void) {
 
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
+    SDL_GPUTexture *msaa_texture = NULL;
+    SDL_GPUSampleCount sample_count = SDL_GPU_SAMPLECOUNT_4;
 
     Uint64 last_counter = SDL_GetPerformanceCounter();
     Uint64 performance_frequency = SDL_GetPerformanceFrequency();
@@ -392,7 +393,8 @@ int main(void) {
 
                 case SDL_EVENT_WINDOW_RESIZED: {
                     width = event.window.data1, height = event.window.data2;
-                } break;
+                }
+                break;
 
                 default: break;
             }
@@ -401,6 +403,9 @@ int main(void) {
         if (width != depth_texture_width || height != depth_texture_height) {
             if (depth_texture) {
                 SDL_ReleaseGPUTexture(device, depth_texture);
+            }
+            if (msaa_texture) {
+                SDL_ReleaseGPUTexture(device, msaa_texture);
             }
 
             depth_texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
@@ -411,8 +416,20 @@ int main(void) {
                                                      .height = height,
                                                      .layer_count_or_depth = 1,
                                                      .num_levels = 1,
-                                                     .sample_count = SDL_GPU_SAMPLECOUNT_1,
+                                                     .sample_count = sample_count,
                                                  });
+
+            msaa_texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
+                                                    .type = SDL_GPU_TEXTURETYPE_2D,
+                                                    .format = swapchain_texture_format,
+                                                    .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+                                                    .width = width,
+                                                    .height = height,
+                                                    .layer_count_or_depth = 1,
+                                                    .num_levels = 1,
+                                                    .sample_count = sample_count,
+                                                });
+
             depth_texture_width = width, depth_texture_height = height;
         }
 
@@ -432,10 +449,12 @@ int main(void) {
 
         if (swapchain_texture) {
             SDL_GPUColorTargetInfo color_target_info = {
-                .texture = swapchain_texture,
+                .texture = msaa_texture,
+                .resolve_texture = swapchain_texture,
                 .clear_color = {0.0f, 0.0f, 0.0f, 0.0f},
                 .load_op = SDL_GPU_LOADOP_CLEAR,
-                .store_op = SDL_GPU_STOREOP_STORE,
+                .store_op = SDL_GPU_STOREOP_RESOLVE,
+                .cycle = true,
             };
 
             SDL_GPUDepthStencilTargetInfo depth_stencil_target_info = {
@@ -451,7 +470,7 @@ int main(void) {
                                                                     &depth_stencil_target_info);
 
             Uint64 current_counter = SDL_GetPerformanceCounter();
-            float delta_time = (float)(current_counter - last_counter) / (float)performance_frequency;
+            float delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
             last_counter = current_counter;
 
             time += delta_time;
@@ -482,6 +501,9 @@ int main(void) {
 
     if (depth_texture) {
         SDL_ReleaseGPUTexture(device, depth_texture);
+    }
+    if (msaa_texture) {
+        SDL_ReleaseGPUTexture(device, msaa_texture);
     }
     SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
     SDL_ReleaseGPUBuffer(device, vertex_buffer);
