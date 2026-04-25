@@ -1,4 +1,4 @@
-#include "Game_platform.h"
+#include "Game.h"
 
 typedef struct {
     float rotation;

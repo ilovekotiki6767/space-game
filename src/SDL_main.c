@@ -4,7 +4,7 @@
 #include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "Game_math.h"
-#include "Game_platform.h"
+#include "Game.h"
 
 #if defined(SDL_PLATFORM_WINDOWS)
 #define GAME_LIB_PATH "game.dll"
