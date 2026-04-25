@@ -6,7 +6,7 @@ find_package(SDL3_shadercross REQUIRED)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(Gaming main.c)
+add_executable(Gaming SDL_main.c)
 
 target_link_libraries(Gaming SDL3::SDL3 SDL3_shadercross::SDL3_shadercross)
 
