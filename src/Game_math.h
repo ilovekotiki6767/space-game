@@ -179,7 +179,7 @@ static Mat4X4 Matrix_Multiply(const Mat4X4 mat1, const Mat4X4 mat2) {
 static Mat4X4 Matrix_OrthographicScreen(const float width, const float height) {
     return Matrix4X4(
         2.0f / width, 0, 0, -1.0f,
-        0, 2.0f / height, 0, -1.0f,
+        0, -2.0f / height, 0, 1.0f,
         0, 0, -1.0f, 0,
         0, 0, 0, 1
     );

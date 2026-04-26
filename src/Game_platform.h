@@ -2,6 +2,9 @@
 #define GAMING_GAME_PLATFORM_H
 
 #include "Game_math.h"
+#include "Game_string.h"
+// one of the C headers that are available without standard library
+#include <stdarg.h>
 
 // Macros
 
@@ -13,7 +16,7 @@
 
 #define IsDown(button) ((button).ended_down)
 #define WasPressed(button) (((button).half_transition_count > 1) || ((button).half_transition_count == 1 && (button).ended_down))
-// reserved texture handle, a 1x1 white pixel texture
+/// reserved texture handle, a 1x1 white pixel texture
 #define TEXTURE_HANDLE_MAGIC_PIXEL 0
 
 // Handles
@@ -31,7 +34,7 @@ typedef enum {
 typedef struct {
     Game_RenderEntryType type;
 
-    union  {
+    union {
         struct {
             Mat4X4 transform;
             Game_TextureHandle texture_handle;
@@ -40,7 +43,7 @@ typedef struct {
         struct {
             Game_FontHandle font_handle;
             float x, y;
-            const char *text;
+            char text[256];
         } text;
     };
 } Game_RenderEntry;
@@ -70,15 +73,20 @@ typedef struct {
     Game_RenderEntry render_entries[1024];
     int render_entry_count;
 
+    float delta_time;
+    /// designed to be used only for printing, updated every half a second
+    float frame_time_ms;
+
     // Platform API
     Game_TextureHandle (*LoadImageFile)(const char *path);
+
     Game_FontHandle (*LoadFontFile)(const char *path, float size);
 } Game_Platform;
 
 // Functions
 
 static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
-                                 const Game_TextureHandle texture_handle) {
+                                     const Game_TextureHandle texture_handle) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
         Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
 
@@ -88,7 +96,8 @@ static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 trans
     }
 }
 
-static void Game_PushTextRenderEntry(Game_Platform *platform, Game_FontHandle font_handle, float x, float y, const char *text) {
+static void Game_PushTextRenderEntry(Game_Platform *platform, const Game_FontHandle font_handle, const float x,
+                                     const float y, const char *text) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
         Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
 
@@ -96,10 +105,80 @@ static void Game_PushTextRenderEntry(Game_Platform *platform, Game_FontHandle fo
         entry->text.font_handle = font_handle;
         entry->text.x = x;
         entry->text.y = y;
-        entry->text.text = text;
+
+        char *destination = entry->text.text;
+        const char *end = destination + ArrayCount(entry->text.text) - 1;
+
+        while (*text && destination < end) {
+            *destination++ = *text++;
+        }
+
+        *destination = '\0';
     }
 }
 
-typedef void (*Game_UpdateAndRender_Func)(Game_Platform *platform, float delta_time);
+static void Game_PushTextRenderEntryF(Game_Platform *platform, const Game_FontHandle font_handle,
+                                      const float x, const float y, const char *fmt, ...) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
+        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
+
+        entry->type = GAME_RENDER_ENTRY_TEXT;
+        entry->text.font_handle = font_handle;
+        entry->text.x = x;
+        entry->text.y = y;
+
+        va_list args;
+        va_start(args, fmt);
+
+        char *destination = entry->text.text;
+        const char *end = destination + ArrayCount(entry->text.text) - 1;
+
+        while (*fmt && destination < end) {
+            if (*fmt != '%') {
+                *destination++ = *fmt++;
+                continue;
+            }
+
+            fmt++;
+
+            int precision = 6;
+            if (*fmt == '.') {
+                fmt++;
+                precision = 0;
+
+                while (*fmt >= '0' && *fmt <= '9') {
+                    precision = precision * 10 + (*fmt - '0');
+                    fmt++;
+                }
+            }
+
+            if (*fmt == 'f') {
+                const double value = va_arg(args, double);
+
+                destination = WriteFloat(destination, end, value, precision);
+                fmt++;
+            } else if (*fmt == '%') {
+                if (destination < end) {
+                    *destination++ = '%';
+                }
+
+                fmt++;
+            } else {
+                if (destination < end) {
+                    *destination++ = '%';
+                }
+
+                if (*fmt && destination < end) {
+                    *destination++ = *fmt++;
+                }
+            }
+        }
+
+        *destination = '\0';
+        va_end(args);
+    }
+}
+
+typedef void (*Game_UpdateAndRender_Func)(Game_Platform *platform);
 
 #endif //GAMING_GAME_PLATFORM_H

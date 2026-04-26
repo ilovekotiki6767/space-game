@@ -682,6 +682,9 @@ int main(void) {
     Uint64 last_counter = SDL_GetPerformanceCounter();
     Uint64 performance_frequency = SDL_GetPerformanceFrequency();
 
+    float frame_time_accumulator = 0.0f;
+    int frame_count = 0;
+
     bool running = true;
     while (running) {
         for (int i = 0; i < GAME_KEY_COUNT; ++i) {
@@ -732,8 +735,17 @@ int main(void) {
         }
 
         Uint64 current_counter = SDL_GetPerformanceCounter();
-        float delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
+        platform.delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
         last_counter = current_counter;
+
+        frame_time_accumulator += platform.delta_time;
+        frame_count++;
+
+        if (frame_time_accumulator >= 0.5f) {
+            platform.frame_time_ms = (frame_time_accumulator * 1000.0f) / (float) frame_count;
+            frame_time_accumulator = 0.0f;
+            frame_count = 0;
+        }
 
         if (width != depth_texture_width || height != depth_texture_height) {
             if (depth_texture) {
@@ -771,7 +783,7 @@ int main(void) {
         platform.render_entry_count = 0;
 
         if (game_code.update_and_render) {
-            game_code.update_and_render(&platform, delta_time);
+            game_code.update_and_render(&platform);
         }
 
         int text_vertex_count = 0;
@@ -792,13 +804,15 @@ int main(void) {
                         int w, h;
                         TTF_GetTextSize(text, &w, &h);
 
+                        int ascent = TTF_GetFontAscent(font);
+
                         TTF_GPUAtlasDrawSequence *sequence = TTF_GetGPUTextDrawData(text);
                         while (sequence) {
                             if (text_draw_call_count < ArrayCount(text_draw_calls)) {
                                 TextDrawCall *draw_call = &text_draw_calls[text_draw_call_count];
                                 draw_call->atlas = sequence->atlas_texture;
 
-                                float px = entry->text.x, py = (float) height - entry->text.y - (float)h;
+                                float px = entry->text.x, py = entry->text.y;
                                 Mat4X4 translation = Matrix_Translation(px, py, 0.0f);
 
                                 draw_call->mvp = Matrix_Multiply(orthographic, translation);
@@ -809,7 +823,7 @@ int main(void) {
                                 for (int vertex = 0; vertex < sequence->num_vertices; ++vertex) {
                                     if (text_vertex_count < ArrayCount(text_vertices) / 4) {
                                         text_vertices[text_vertex_count * 4 + 0] = sequence->xy[vertex].x;
-                                        text_vertices[text_vertex_count * 4 + 1] = sequence->xy[vertex].y;
+                                        text_vertices[text_vertex_count * 4 + 1] = -sequence->xy[vertex].y;
                                         text_vertices[text_vertex_count * 4 + 2] = sequence->uv[vertex].x;
                                         text_vertices[text_vertex_count * 4 + 3] = sequence->uv[vertex].y;
                                         text_vertex_count++;

@@ -7,11 +7,11 @@ typedef struct {
     Bool initialized;
 } State;
 
-void UpdateAndRender(Game_Platform *platform, const float delta_time) {
+void UpdateAndRender(Game_Platform *platform) {
     State *state = platform->permanent_storage;
 
     if (!state->initialized) {
-        state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 32.0f);
+        state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 24.0f);
 
         state->rotation = 0.0f;
         // this must always be here!
@@ -19,12 +19,13 @@ void UpdateAndRender(Game_Platform *platform, const float delta_time) {
     }
 
     if (IsDown(platform->input[GAME_KEY_A])) {
-        state->rotation -= 2.0f * delta_time;
+        state->rotation -= 2.0f * platform->delta_time;
     }
     if (IsDown(platform->input[GAME_KEY_D])) {
-        state->rotation += 2.0f * delta_time;
+        state->rotation += 2.0f * platform->delta_time;
     }
 
     Game_PushMeshRenderEntry(platform, Matrix_RotationY(state->rotation), TEXTURE_HANDLE_MAGIC_PIXEL);
-    Game_PushTextRenderEntry(platform, state->debug_font, 0.0f, 0.0f, "Blah ttchef the goat\n");
+    Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
+                              "%.1fms", platform->frame_time_ms);
 }
