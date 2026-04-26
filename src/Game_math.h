@@ -179,6 +179,7 @@ static Mat4X4 Matrix_Multiply(const Mat4X4 mat1, const Mat4X4 mat2) {
 typedef struct {
     float x, y, z;
     float r, g, b, a;
+    float u, v;
 } Vertex;
 
 #endif //GAMING_GAME_MATH_H

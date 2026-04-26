@@ -1,6 +1,7 @@
 // entrypoint and the implementation of the SDL platform backend
 
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "Game_math.h"
@@ -13,6 +14,11 @@
 #else
 #define GAME_LIB_PATH "./game.so"
 #endif
+
+static SDL_GPUDevice *device;
+
+static SDL_GPUTexture *textures[256];
+static int texture_count;
 
 typedef struct {
     void *handle;
@@ -56,18 +62,18 @@ static void UnloadGameCode(GameCode *code) {
 }
 
 Vertex vertices[] = {
-    // Front (Red)
-    {-1, -1, 1, 1, 0, 0, 1}, {1, -1, 1, 1, 0, 0, 1}, {1, 1, 1, 1, 0, 0, 1}, {-1, 1, 1, 1, 0, 0, 1},
-    // Back (Green)
-    {1, -1, -1, 0, 1, 0, 1}, {-1, -1, -1, 0, 1, 0, 1}, {-1, 1, -1, 0, 1, 0, 1}, {1, 1, -1, 0, 1, 0, 1},
-    // Top (Blue)
-    {-1, 1, -1, 0, 0, 1, 1}, {-1, 1, 1, 0, 0, 1, 1}, {1, 1, 1, 0, 0, 1, 1}, {1, 1, -1, 0, 0, 1, 1},
-    // Bottom (Yellow)
-    {-1, -1, -1, 1, 1, 0, 1}, {1, -1, -1, 1, 1, 0, 1}, {1, -1, 1, 1, 1, 0, 1}, {-1, -1, 1, 1, 1, 0, 1},
-    // Right (Magenta)
-    {1, -1, -1, 1, 0, 1, 1}, {1, 1, -1, 1, 0, 1, 1}, {1, 1, 1, 1, 0, 1, 1}, {1, -1, 1, 1, 0, 1, 1},
-    // Left (Cyan)
-    {-1, -1, -1, 0, 1, 1, 1}, {-1, -1, 1, 0, 1, 1, 1}, {-1, 1, 1, 0, 1, 1, 1}, {-1, 1, -1, 0, 1, 1, 1}
+    {-1, -1, 1, 1, 0, 0, 1, 0, 1}, {1, -1, 1, 1, 0, 0, 1, 1, 1}, {1, 1, 1, 1, 0, 0, 1, 1, 0},
+    {-1, 1, 1, 1, 0, 0, 1, 0, 0},
+    {1, -1, -1, 0, 1, 0, 1, 0, 1}, {-1, -1, -1, 0, 1, 0, 1, 1, 1}, {-1, 1, -1, 0, 1, 0, 1, 1, 0},
+    {1, 1, -1, 0, 1, 0, 1, 0, 0},
+    {-1, 1, -1, 0, 0, 1, 1, 0, 0}, {-1, 1, 1, 0, 0, 1, 1, 0, 1}, {1, 1, 1, 0, 0, 1, 1, 1, 1},
+    {1, 1, -1, 0, 0, 1, 1, 1, 0},
+    {-1, -1, -1, 1, 1, 0, 1, 0, 1}, {1, -1, -1, 1, 1, 0, 1, 1, 1}, {1, -1, 1, 1, 1, 0, 1, 1, 0},
+    {-1, -1, 1, 1, 1, 0, 1, 0, 0},
+    {1, -1, -1, 1, 0, 1, 1, 1, 1}, {1, 1, -1, 1, 0, 1, 1, 1, 0}, {1, 1, 1, 1, 0, 1, 1, 0, 0},
+    {1, -1, 1, 1, 0, 1, 1, 0, 1},
+    {-1, -1, -1, 0, 1, 1, 1, 0, 1}, {-1, -1, 1, 0, 1, 1, 1, 1, 1}, {-1, 1, 1, 0, 1, 1, 1, 1, 0},
+    {-1, 1, -1, 0, 1, 1, 1, 0, 0}
 };
 
 Uint16 indices[] = {
@@ -79,7 +85,7 @@ Uint16 indices[] = {
     20, 21, 22, 20, 22, 23 // left
 };
 
-SDL_GPUShader *CreateGPUShader(SDL_GPUDevice *device, const char *filepath, const SDL_ShaderCross_ShaderStage stage) {
+SDL_GPUShader *CreateGPUShader(const char *filepath, const SDL_ShaderCross_ShaderStage stage) {
     SDL_IOStream *io = SDL_IOFromFile(filepath, "rb");
     if (!io) {
         SDL_Log("%s", SDL_GetError());
@@ -124,19 +130,78 @@ SDL_GPUShader *CreateGPUShader(SDL_GPUDevice *device, const char *filepath, cons
     return shader;
 }
 
+static SDL_GPUTexture *CreateMagicPixel(void) {
+    SDL_GPUTexture *texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
+                                                       .type = SDL_GPU_TEXTURETYPE_2D,
+                                                       .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+                                                       .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                                                       .width = 1,
+                                                       .height = 1,
+                                                       .layer_count_or_depth = 1,
+                                                       .num_levels = 1,
+                                                       .sample_count = SDL_GPU_SAMPLECOUNT_1,
+                                                   });
+
+    if (!texture) {
+        SDL_Log("%s", SDL_GetError());
+
+        return NULL;
+    }
+
+    SDL_GPUTransferBuffer *transfer_buffer = SDL_CreateGPUTransferBuffer(device, &(SDL_GPUTransferBufferCreateInfo){
+                                                                             .usage =
+                                                                             SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                                                                             .size = 4,
+                                                                         });
+
+    Uint8 *data = SDL_MapGPUTransferBuffer(device, transfer_buffer, false);
+    data[0] = 255;
+    data[1] = 0;
+    data[2] = 255;
+    data[3] = 255;
+    SDL_UnmapGPUTransferBuffer(device, transfer_buffer);
+
+    SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+
+    SDL_UploadToGPUTexture(copy_pass,
+                           &(SDL_GPUTextureTransferInfo){
+                               .transfer_buffer = transfer_buffer,
+                               .offset = 0,
+                               .pixels_per_row = 0,
+                               .rows_per_layer = 0
+                           },
+                           &(SDL_GPUTextureRegion){
+                               .texture = texture,
+                               .mip_level = 0,
+                               .layer = 0,
+                               .x = 0, .y = 0, .z = 0,
+                               .w = 1, .h = 1, .d = 1
+                           },
+                           false);
+
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(command_buffer);
+    SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
+
+    return texture;
+}
+
 typedef struct {
     SDL_GPUGraphicsPipeline *pipeline;
     SDL_GPUBuffer *vertex_buffer;
     SDL_GPUBuffer *index_buffer;
     int index_count;
+    SDL_GPUSampler *sampler;
 } Render;
 
 static void InitializeRender(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
-                             SDL_GPUBuffer *index_buffer, const int index_count) {
+                             SDL_GPUBuffer *index_buffer, const int index_count, SDL_GPUSampler *sampler) {
     render->pipeline = pipeline;
     render->vertex_buffer = vertex_buffer;
     render->index_buffer = index_buffer;
     render->index_count = index_count;
+    render->sampler = sampler;
 }
 
 static void FlushRenderEntries(const Render *render, const Game_Platform *platform,
@@ -158,6 +223,19 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
                            }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
     for (int i = 0; i < platform->render_entry_count; ++i) {
+        const Game_TextureHandle texture_handle = platform->render_entries[i].texture_handle;
+
+        int texture_index = 0;
+
+        if (texture_handle > 0 && texture_handle <= texture_count) {
+            texture_index = (int) texture_handle - 1;
+        }
+
+        SDL_BindGPUFragmentSamplers(render_pass, 0, &(SDL_GPUTextureSamplerBinding){
+                                        .texture = textures[texture_index],
+                                        .sampler = render->sampler,
+                                    }, 1);
+
         Mat4X4 mvp = Matrix_Multiply(view_projection, platform->render_entries[i].transform);
         SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
         SDL_DrawGPUIndexedPrimitives(render_pass, render->index_count, 1, 0, 0, 0);
@@ -177,6 +255,35 @@ static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
     }
 }
 
+// Platform API implementation
+
+static Game_TextureHandle Platform_LoadImageTexture(const char *path) {
+    if (texture_count >= ArrayCount(textures)) {
+        return 0;
+    }
+
+    SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+
+    int w, h;
+    SDL_GPUTexture *texture = IMG_LoadGPUTexture(device, copy_pass, path, &w, &h);
+
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(command_buffer);
+
+    if (!texture) {
+        SDL_Log("%s", SDL_GetError());
+
+        return 0;
+    }
+
+    const Game_TextureHandle handle = texture_count + 1;
+    textures[texture_count] = texture;
+    texture_count++;
+
+    return handle;
+}
+
 int main(void) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         SDL_Log("%s", SDL_GetError());
@@ -193,7 +300,7 @@ int main(void) {
     int width = 1280, height = 720;
     SDL_Window *window = SDL_CreateWindow("Game", width, height, SDL_WINDOW_RESIZABLE);
 
-    SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(), true, NULL);
+    device = SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(), true, NULL);
     if (!device) {
         SDL_Log("%s", SDL_GetError());
 
@@ -206,9 +313,8 @@ int main(void) {
         return 1;
     }
 
-    SDL_GPUShader *vertex_shader = CreateGPUShader(device, "shaders/vertex.spv", SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
-    SDL_GPUShader *fragment_shader = CreateGPUShader(device, "shaders/fragment.spv",
-                                                     SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
+    SDL_GPUShader *vertex_shader = CreateGPUShader("shaders/vertex.spv", SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
+    SDL_GPUShader *fragment_shader = CreateGPUShader("shaders/fragment.spv", SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
 
     if (!vertex_shader || !fragment_shader) {
         return 1;
@@ -263,13 +369,22 @@ int main(void) {
     SDL_SubmitGPUCommandBuffer(upload_command_buffer);
     SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
 
+    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
+                                                       .min_filter = SDL_GPU_FILTER_LINEAR,
+                                                       .mag_filter = SDL_GPU_FILTER_LINEAR,
+                                                       .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+                                                       .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                                       .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                                       .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                                   });
+
     SDL_GPUVertexBufferDescription vertex_buffer_description = {
         .slot = 0,
         .pitch = sizeof(Vertex),
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
     };
 
-    SDL_GPUVertexAttribute vertex_attributes[2] = {0};
+    SDL_GPUVertexAttribute vertex_attributes[3] = {0};
     vertex_attributes[0] = (SDL_GPUVertexAttribute){
         .location = 0,
         .buffer_slot = 0,
@@ -281,6 +396,12 @@ int main(void) {
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
         .offset = sizeof(float) * 3,
+    };
+    vertex_attributes[2] = (SDL_GPUVertexAttribute){
+        .location = 2,
+        .buffer_slot = 0,
+        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+        .offset = sizeof(float) * 7, // position (4) and color (3)
     };
 
     SDL_GPUColorTargetBlendState blend_state = {
@@ -303,14 +424,14 @@ int main(void) {
             .vertex_buffer_descriptions = &vertex_buffer_description,
             .num_vertex_buffers = 1,
             .vertex_attributes = vertex_attributes,
-            .num_vertex_attributes = 2
+            .num_vertex_attributes = 3
         },
 
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
 
         .rasterizer_state = (SDL_GPURasterizerState){
             .cull_mode = SDL_GPU_CULLMODE_BACK,
-            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+            .front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
         },
 
         .multisample_state = (SDL_GPUMultisampleState){
@@ -347,15 +468,20 @@ int main(void) {
     SDL_ReleaseGPUShader(device, fragment_shader);
 
     Render render = {0};
-    InitializeRender(&render, pipeline, vertex_buffer, index_buffer, 36);
+    InitializeRender(&render, pipeline, vertex_buffer, index_buffer, 36, sampler);
 
     int permanent_storage_size = Megabytes(64);
     void *permanent_storage = SDL_malloc(permanent_storage_size);
     SDL_memset(permanent_storage, 0, permanent_storage_size);
 
+    textures[0] = CreateMagicPixel();
+    texture_count = 1; // index 0 is now reserved
+
     Game_Platform platform = {
         .permanent_storage = permanent_storage,
         .permanent_storage_size = permanent_storage_size,
+
+        .LoadImageTexture = Platform_LoadImageTexture
     };
 
     GameCode game_code = LoadGameCode(GAME_LIB_PATH);
@@ -514,6 +640,12 @@ int main(void) {
     }
     if (msaa_texture) {
         SDL_ReleaseGPUTexture(device, msaa_texture);
+    }
+    for (int i = 0; i < texture_count; ++i) {
+        SDL_ReleaseGPUTexture(device, textures[i]);
+    }
+    if (sampler) {
+        SDL_ReleaseGPUSampler(device, sampler);
     }
     SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
     SDL_ReleaseGPUBuffer(device, vertex_buffer);

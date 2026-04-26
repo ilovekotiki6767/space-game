@@ -3,14 +3,26 @@
 
 #include "Game_math.h"
 
+// Macros
+
 #define Bool int
 #define True 1
 #define False 0
 
 #define ArrayCount(array) (sizeof(array)/sizeof(array[0]))
 
+#define IsDown(button) ((button).ended_down)
+#define WasPressed(button) (((button).half_transition_count > 1) || ((button).half_transition_count == 1 && (button).ended_down))
+
+// Handles
+
+typedef unsigned int Game_TextureHandle;
+
+// Structures
+
 typedef struct {
     Mat4X4 transform;
+    Game_TextureHandle texture_handle;
 } Game_RenderEntry;
 
 typedef struct {
@@ -29,9 +41,6 @@ typedef enum {
     GAME_KEY_COUNT,
 } Game_Key;
 
-#define IsDown(button) ((button).ended_down)
-#define WasPressed(button) (((button).half_transition_count > 1) || ((button).half_transition_count == 1 && (button).ended_down))
-
 typedef struct {
     void *permanent_storage;
     unsigned long long permanent_storage_size;
@@ -40,11 +49,18 @@ typedef struct {
 
     Game_RenderEntry render_entries[1024];
     int render_entry_count;
+
+    // Platform API
+    Game_TextureHandle (*LoadImageTexture)(const char *path);
 } Game_Platform;
 
-static void Game_PushRenderEntry(Game_Platform *platform, const Mat4X4 transform) {
+// Functions
+
+static void Game_PushRenderEntry(Game_Platform *platform, const Mat4X4 transform, const Game_TextureHandle texture_handle) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
-        platform->render_entries[platform->render_entry_count++].transform = transform;
+        platform->render_entries[platform->render_entry_count].transform = transform;
+        platform->render_entries[platform->render_entry_count].texture_handle = texture_handle;
+        platform->render_entry_count++;
     }
 }
 

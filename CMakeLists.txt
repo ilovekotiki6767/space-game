@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 find_package(SDL3 REQUIRED)
 find_package(SDL3_shadercross REQUIRED)
+find_package(SDL3_image REQUIRED)
 
 add_library(Game SHARED src/Game_main.c)
 target_include_directories(Game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -14,7 +15,7 @@ set_target_properties(Game PROPERTIES
 )
 
 add_executable(Platform src/SDL_main.c)
-target_link_libraries(Platform SDL3::SDL3 SDL3_shadercross::SDL3_shadercross)
+target_link_libraries(Platform SDL3::SDL3 SDL3_shadercross::SDL3_shadercross SDL3_image::SDL3_image)
 target_include_directories(Platform PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # building Platform automatically builds Game first
