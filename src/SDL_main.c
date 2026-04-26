@@ -816,6 +816,9 @@ int main(void) {
             depth_texture_width = width, depth_texture_height = height;
         }
 
+        platform.width = (float)width;
+        platform.height = (float)height;
+
         platform.render_entry_count = 0;
 
         if (game_code.update_and_render) {
@@ -841,8 +844,6 @@ int main(void) {
                     if (text) {
                         int w, h;
                         TTF_GetTextSize(text, &w, &h);
-
-                        int ascent = TTF_GetFontAscent(font);
 
                         TTF_GPUAtlasDrawSequence *sequence = TTF_GetGPUTextDrawData(text);
                         while (sequence) {
@@ -952,11 +953,7 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            Mat4X4 view = Matrix_LookAt(Vector3(0, 0, 5), Vector3(0, 0, 0), Vector3(0, 1, 0));
-            Mat4X4 projection = Matrix_Perspective(SDL_PI_F / 4.0f, (float) width / (float) height, 0.1f, 100.0f);
-            Mat4X4 view_projection = Matrix_Multiply(projection, view);
-
-            FlushRenderEntries(&render, &platform, command_buffer, render_pass, view_projection);;
+            FlushRenderEntries(&render, &platform, command_buffer, render_pass, platform.view_projection);;
 
             if (text_draw_call_count > 0) {
                 SDL_BindGPUGraphicsPipeline(render_pass, text_pipeline);

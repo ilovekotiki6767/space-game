@@ -81,6 +81,9 @@ typedef struct {
     Bool mouse_locked;
     float mouse_delta_x, mouse_delta_y;
 
+    float width, height;
+    Mat4X4 view_projection;
+
     // NOTE: the function pointers below should only be used if something you need cannot be represented by a simple
     // data type or a few fields. for example, there is no point in adding a `GetX` function here if `X` can just be a
     // direct field

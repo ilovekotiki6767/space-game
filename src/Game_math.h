@@ -4,6 +4,8 @@
 #define Kilobytes(n) ((n) * 1024LL)
 #define Megabytes(n) ((n) * Kilobytes(1024))
 
+#define Clamp(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
+
 // Math runtime
 
 #define PI 3.141592653589793238462643383279502884f
@@ -63,6 +65,14 @@ static Vec3 Vector3(const float x, const float y, const float z) {
 
 static Vec3 Vec3_Sub(const Vec3 vec1, const Vec3 vec2) {
     return Vector3(vec1.x - vec2.x, vec1.y - vec2.y, vec1.z - vec2.z);
+}
+
+static Vec3 Vec3_Add(const Vec3 vec1, const Vec3 vec2) {
+    return Vector3(vec1.x + vec2.x, vec1.y + vec2.y, vec1.z + vec2.z);
+}
+
+static Vec3 Vec3_Scale(const Vec3 vec, const float scale) {
+    return Vector3(vec.x * scale, vec.y * scale, vec.z * scale);
 }
 
 static Vec3 Vec3_Cross(const Vec3 vec1, const Vec3 vec2) {
