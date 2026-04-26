@@ -19,12 +19,30 @@
 // Handles
 
 typedef unsigned int Game_TextureHandle;
+typedef unsigned int Game_FontHandle;
 
 // Structures
 
+typedef enum {
+    GAME_RENDER_ENTRY_MESH,
+    GAME_RENDER_ENTRY_TEXT,
+} Game_RenderEntryType;
+
 typedef struct {
-    Mat4X4 transform;
-    Game_TextureHandle texture_handle;
+    Game_RenderEntryType type;
+
+    union  {
+        struct {
+            Mat4X4 transform;
+            Game_TextureHandle texture_handle;
+        } mesh;
+
+        struct {
+            Game_FontHandle font_handle;
+            float x, y;
+            const char *text;
+        } text;
+    };
 } Game_RenderEntry;
 
 typedef struct {
@@ -53,16 +71,32 @@ typedef struct {
     int render_entry_count;
 
     // Platform API
-    Game_TextureHandle (*LoadImageTexture)(const char *path);
+    Game_TextureHandle (*LoadImageFile)(const char *path);
+    Game_FontHandle (*LoadFontFile)(const char *path, float size);
 } Game_Platform;
 
 // Functions
 
-static void Game_PushRenderEntry(Game_Platform *platform, const Mat4X4 transform, const Game_TextureHandle texture_handle) {
+static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
+                                 const Game_TextureHandle texture_handle) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
-        platform->render_entries[platform->render_entry_count].transform = transform;
-        platform->render_entries[platform->render_entry_count].texture_handle = texture_handle;
-        platform->render_entry_count++;
+        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
+
+        entry->type = GAME_RENDER_ENTRY_MESH;
+        entry->mesh.transform = transform;
+        entry->mesh.texture_handle = texture_handle;
+    }
+}
+
+static void Game_PushTextRenderEntry(Game_Platform *platform, Game_FontHandle font_handle, float x, float y, const char *text) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
+        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
+
+        entry->type = GAME_RENDER_ENTRY_TEXT;
+        entry->text.font_handle = font_handle;
+        entry->text.x = x;
+        entry->text.y = y;
+        entry->text.text = text;
     }
 }
 

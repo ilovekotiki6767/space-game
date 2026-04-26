@@ -176,6 +176,24 @@ static Mat4X4 Matrix_Multiply(const Mat4X4 mat1, const Mat4X4 mat2) {
     return res;
 }
 
+static Mat4X4 Matrix_OrthographicScreen(const float width, const float height) {
+    return Matrix4X4(
+        2.0f / width, 0, 0, -1.0f,
+        0, 2.0f / height, 0, -1.0f,
+        0, 0, -1.0f, 0,
+        0, 0, 0, 1
+    );
+}
+
+static Mat4X4 Matrix_Translation(const float x, const float y, const float z) {
+    return Matrix4X4(
+        1, 0, 0, x,
+        0, 1, 0, y,
+        0, 0, 1, z,
+        0, 0, 0, 1
+    );
+}
+
 typedef struct {
     float x, y, z;
     float r, g, b, a;
