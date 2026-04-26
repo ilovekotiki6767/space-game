@@ -264,6 +264,7 @@ static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
         case SDL_SCANCODE_A: return GAME_KEY_A;
         case SDL_SCANCODE_S: return GAME_KEY_S;
         case SDL_SCANCODE_D: return GAME_KEY_D;
+        case SDL_SCANCODE_ESCAPE: return GAME_KEY_ESCAPE;
         case SDL_SCANCODE_SPACE: return GAME_KEY_SPACE;
         case SDL_SCANCODE_LCTRL: return GAME_KEY_LEFT_CTRL;
 
@@ -691,6 +692,8 @@ int main(void) {
             platform.input[i].half_transition_count = 0;
         }
 
+        platform.mouse_delta_x = 0.0f, platform.mouse_delta_y = 0.0f;
+
         SDL_Event event;
 
         while (SDL_PollEvent(&event)) {
@@ -705,6 +708,11 @@ int main(void) {
                 }
                 break;
 
+                case SDL_EVENT_WINDOW_FOCUS_LOST: {
+                    platform.mouse_locked = false;
+                    SDL_SetWindowRelativeMouseMode(window, false);
+                }
+                break;
 
                 case SDL_EVENT_KEY_DOWN:
                 case SDL_EVENT_KEY_UP: {
@@ -724,6 +732,34 @@ int main(void) {
                     }
                 }
                 break;
+
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                case SDL_EVENT_MOUSE_BUTTON_UP: {
+                    Game_Key key = GAME_KEY_NONE;
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        key = GAME_KEY_MOUSE_LEFT;
+                    }
+                    else if (event.button.button == SDL_BUTTON_RIGHT) {
+                        key = GAME_KEY_MOUSE_RIGHT;
+                    }
+
+                    if (key != GAME_KEY_NONE) {
+                        Game_ButtonState *button = &platform.input[key];
+                        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                            button->ended_down = true;
+                        } else {
+                            button->ended_down = false;
+                        }
+                        button->half_transition_count++;
+                    }
+                }
+                break;
+
+                case SDL_EVENT_MOUSE_MOTION: {
+                    platform.mouse_delta_x += event.motion.xrel, platform.mouse_delta_y += event.motion.yrel;
+                }
+                break;
+
                 default: break;
             }
         }
@@ -785,6 +821,8 @@ int main(void) {
         if (game_code.update_and_render) {
             game_code.update_and_render(&platform);
         }
+
+        SDL_SetWindowRelativeMouseMode(window, platform.mouse_locked);
 
         int text_vertex_count = 0;
         int text_index_count = 0;

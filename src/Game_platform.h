@@ -59,7 +59,8 @@ typedef enum {
     // don't forget to map the keys:
     // * SDLKeyToGameKey in SDL_main.c
     GAME_KEY_W, GAME_KEY_A, GAME_KEY_S, GAME_KEY_D,
-    GAME_KEY_SPACE, GAME_KEY_LEFT_CTRL,
+    GAME_KEY_ESCAPE, GAME_KEY_SPACE, GAME_KEY_LEFT_CTRL,
+    GAME_KEY_MOUSE_LEFT, GAME_KEY_MOUSE_RIGHT,
 
     GAME_KEY_COUNT,
 } Game_Key;
@@ -74,8 +75,15 @@ typedef struct {
     int render_entry_count;
 
     float delta_time;
-    /// designed to be used only for printing, updated every half a second
+    /// updated every half a second
     float frame_time_ms;
+
+    Bool mouse_locked;
+    float mouse_delta_x, mouse_delta_y;
+
+    // NOTE: the function pointers below should only be used if something you need cannot be represented by a simple
+    // data type or a few fields. for example, there is no point in adding a `GetX` function here if `X` can just be a
+    // direct field
 
     // Platform API
     Game_TextureHandle (*LoadImageFile)(const char *path);
