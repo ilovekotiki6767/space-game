@@ -34,7 +34,7 @@ void UpdateAndRender(Game_Platform *platform) {
         state->yaw += platform->mouse_delta_x * 0.002f;
         state->pitch -= platform->mouse_delta_y * 0.002f;
 
-        Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
+        state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
 
     Vec3 forward = Vector3(-Cos(state->pitch) * Sin(state->yaw), Sin(state->pitch),
