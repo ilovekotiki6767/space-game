@@ -156,7 +156,7 @@ static SDL_GPUTexture *CreateMagicPixel(void) {
 
     Uint8 *data = SDL_MapGPUTransferBuffer(device, transfer_buffer, false);
     data[0] = 255;
-    data[1] = 0;
+    data[1] = 255;
     data[2] = 255;
     data[3] = 255;
     SDL_UnmapGPUTransferBuffer(device, transfer_buffer);
@@ -474,7 +474,7 @@ int main(void) {
     void *permanent_storage = SDL_malloc(permanent_storage_size);
     SDL_memset(permanent_storage, 0, permanent_storage_size);
 
-    textures[0] = CreateMagicPixel();
+    textures[TEXTURE_HANDLE_MAGIC_PIXEL] = CreateMagicPixel();
     texture_count = 1; // index 0 is now reserved
 
     Game_Platform platform = {

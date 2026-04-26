@@ -13,6 +13,8 @@
 
 #define IsDown(button) ((button).ended_down)
 #define WasPressed(button) (((button).half_transition_count > 1) || ((button).half_transition_count == 1 && (button).ended_down))
+// reserved texture handle, a 1x1 white pixel texture
+#define TEXTURE_HANDLE_MAGIC_PIXEL 0
 
 // Handles
 

@@ -26,5 +26,5 @@ void UpdateAndRender(Game_Platform *platform, const float delta_time) {
         state->rotation += 2.0f * delta_time;
     }
 
-    Game_PushRenderEntry(platform, Matrix_RotationY(state->rotation), state->debug_texture);
+    Game_PushRenderEntry(platform, Matrix_RotationY(state->rotation), TEXTURE_HANDLE_MAGIC_PIXEL);
 }
