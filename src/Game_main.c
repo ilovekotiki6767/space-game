@@ -216,18 +216,35 @@ void UpdateAndRender(Game_Platform *platform) {
             const float a = entity->color.w;
 
             const Vertex vertices[] = {
-                {-dim.x, -dim.y, dim.z, r, g, b, a, 0, 1}, {dim.x, -dim.y, dim.z, r, g, b, a, 1, 1},
-                {dim.x, dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, dim.y, dim.z, r, g, b, a, 0, 0},
-                {dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {-dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1},
-                {-dim.x, dim.y, -dim.z, r, g, b, a, 1, 0}, {dim.x, dim.y, -dim.z, r, g, b, a, 0, 0},
-                {-dim.x, dim.y, -dim.z, r, g, b, a, 0, 0}, {-dim.x, dim.y, dim.z, r, g, b, a, 0, 1},
-                {dim.x, dim.y, dim.z, r, g, b, a, 1, 1}, {dim.x, dim.y, -dim.z, r, g, b, a, 1, 0},
-                {-dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1},
-                {dim.x, -dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, -dim.y, dim.z, r, g, b, a, 0, 0},
-                {dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1}, {dim.x, dim.y, -dim.z, r, g, b, a, 1, 0},
-                {dim.x, dim.y, dim.z, r, g, b, a, 0, 0}, {dim.x, -dim.y, dim.z, r, g, b, a, 0, 1},
-                {-dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {-dim.x, -dim.y, dim.z, r, g, b, a, 1, 1},
-                {-dim.x, dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, dim.y, -dim.z, r, g, b, a, 0, 0}
+                {-dim.x, -dim.y, dim.z, 0, 0, 1, r, g, b, a, 0, 1},
+                {dim.x, -dim.y, dim.z, 0, 0, 1, r, g, b, a, 1, 1},
+                {dim.x, dim.y, dim.z, 0, 0, 1, r, g, b, a, 1, 0},
+                {-dim.x, dim.y, dim.z, 0, 0, 1, r, g, b, a, 0, 0},
+
+                {dim.x, -dim.y, -dim.z, 0, 0, -1, r, g, b, a, 0, 1},
+                {-dim.x, -dim.y, -dim.z, 0, 0, -1, r, g, b, a, 1, 1},
+                {-dim.x, dim.y, -dim.z, 0, 0, -1, r, g, b, a, 1, 0},
+                {dim.x, dim.y, -dim.z, 0, 0, -1, r, g, b, a, 0, 0},
+
+                {-dim.x, dim.y, -dim.z, 0, 1, 0, r, g, b, a, 0, 0},
+                {-dim.x, dim.y, dim.z, 0, 1, 0, r, g, b, a, 0, 1},
+                {dim.x, dim.y, dim.z, 0, 1, 0, r, g, b, a, 1, 1},
+                {dim.x, dim.y, -dim.z, 0, 1, 0, r, g, b, a, 1, 0},
+
+                {-dim.x, -dim.y, -dim.z, 0, -1, 0, r, g, b, a, 0, 1},
+                {dim.x, -dim.y, -dim.z, 0, -1, 0, r, g, b, a, 1, 1},
+                {dim.x, -dim.y, dim.z, 0, -1, 0, r, g, b, a, 1, 0},
+                {-dim.x, -dim.y, dim.z, 0, -1, 0, r, g, b, a, 0, 0},
+
+                {dim.x, -dim.y, -dim.z, 1, 0, 0, r, g, b, a, 1, 1},
+                {dim.x, dim.y, -dim.z, 1, 0, 0, r, g, b, a, 1, 0},
+                {dim.x, dim.y, dim.z, 1, 0, 0, r, g, b, a, 0, 0},
+                {dim.x, -dim.y, dim.z, 1, 0, 0, r, g, b, a, 0, 1},
+
+                {-dim.x, -dim.y, -dim.z, -1, 0, 0, r, g, b, a, 0, 1},
+                {-dim.x, -dim.y, dim.z, -1, 0, 0, r, g, b, a, 1, 1},
+                {-dim.x, dim.y, dim.z, -1, 0, 0, r, g, b, a, 1, 0},
+                {-dim.x, dim.y, -dim.z, -1, 0, 0, r, g, b, a, 0, 0}
             };
             const unsigned short indices[] = {
                 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,

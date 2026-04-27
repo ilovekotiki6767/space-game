@@ -486,29 +486,35 @@ int main(void) {
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
     };
 
-    SDL_GPUVertexAttribute mesh_vertex_attributes[3] = {0};
+    SDL_GPUVertexAttribute mesh_vertex_attributes[4] = {0};
     mesh_vertex_attributes[0] = (SDL_GPUVertexAttribute){
         .location = 0,
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-        .offset = 0,
+        .offset = 0, // x, y, z
     };
     mesh_vertex_attributes[1] = (SDL_GPUVertexAttribute){
         .location = 1,
         .buffer_slot = 0,
-        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
-        .offset = sizeof(float) * 3,
+        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+        .offset = sizeof(float) * 3, // nx, ny, nz
     };
     mesh_vertex_attributes[2] = (SDL_GPUVertexAttribute){
         .location = 2,
         .buffer_slot = 0,
+        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+        .offset = sizeof(float) * 6, // r, g, b, a
+    };
+    mesh_vertex_attributes[3] = (SDL_GPUVertexAttribute){
+        .location = 3,
+        .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-        .offset = sizeof(float) * 7,
+        .offset = sizeof(float) * 10, // u, v
     };
 
     PipelineBuilder mesh_pipeline_builder = BeginPipeline();
     PipelineSetShaders(&mesh_pipeline_builder, mesh_vertex_shader, mesh_fragment_shader);
-    PipelineSetVertexInput(&mesh_pipeline_builder, &mesh_vertex_buffer_description, 1, mesh_vertex_attributes, 3);
+    PipelineSetVertexInput(&mesh_pipeline_builder, &mesh_vertex_buffer_description, 1, mesh_vertex_attributes, 4);
     PipelineSetTargetFormat(&mesh_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D16_UNORM);
 
     SDL_GPUGraphicsPipeline *mesh_pipeline = EndPipeline(&mesh_pipeline_builder);

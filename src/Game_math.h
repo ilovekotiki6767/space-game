@@ -224,6 +224,7 @@ static Mat4X4 Matrix_Translation(const float x, const float y, const float z) {
 
 typedef struct {
     float x, y, z;
+    float nx, ny, nz;
     float r, g, b, a;
     float u, v;
 } Vertex;
