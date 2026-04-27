@@ -31,8 +31,8 @@ void UpdateAndRender(Game_Platform *platform) {
             platform->mouse_locked = False;
         }
 
-        state->yaw += platform->mouse_delta_x * 0.002f;
-        state->pitch -= platform->mouse_delta_y * 0.002f;
+        state->yaw += platform->mouse_delta_x * 0.001f;
+        state->pitch -= platform->mouse_delta_y * 0.001f;
 
         state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
@@ -69,7 +69,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
     const Vec3 target = Vec3_Add(state->position, forward);
     const Mat4X4 view = Matrix_LookAt(state->position, target, Vector3(0, 1, 0));
-    const Mat4X4 projection = Matrix_Perspective(PI / 4.0f, platform->width / platform->height, 0.1f, 100.0f);
+    const Mat4X4 projection = Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 0.1f, 100.0f);
 
     platform->view_projection = Matrix_Multiply(projection, view);
 
