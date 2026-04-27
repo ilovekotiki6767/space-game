@@ -105,6 +105,24 @@ static float Vec3_Dot(const Vec3 vec1, const Vec3 vec2) {
     return vec1.x * vec2.x + vec1.y * vec2.y + vec1.z * vec2.z;
 }
 
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float w;
+} Vec4;
+
+static Vec4 Vector4(const float x, const float y, const float z, const float w) {
+    return (Vec4){.x = x, .y = y, .z = z, .w = w};
+}
+
+#define WHITE Vector4(1.0f, 1.0f, 1.0f, 1.0f)
+#define BLACK Vector4(0.0f, 0.0f, 0.0f, 1.0f)
+#define RED Vector4(1.0f, 0.0f, 0.0f, 1.0f)
+#define GREEN Vector4(0.0f, 1.0f, 0.0f, 1.0f)
+#define BLUE Vector4(0.0f, 0.0f, 1.0f, 1.0f)
+#define GRAY Vector4(0.5f, 0.5f, 0.5f, 1.0f)
+
 /**
  * The matrix is stored in column major format
  **/

@@ -37,6 +37,7 @@ typedef struct {
 
     Vec3 position;
     Vec3 dim;
+    Vec4 color;
 } Entity;
 
 static AABB GetEntityAABB(const Entity *entity) {
@@ -89,16 +90,19 @@ void UpdateAndRender(Game_Platform *platform) {
         floor->type = ENTITY_CUBE;
         floor->position = Vector3(0, -2.0f, 0);
         floor->dim = Vector3(20, 2, 20);
+        floor->color = GRAY;
 
         Entity *cube1 = AddEntity(state);
         cube1->type = ENTITY_CUBE;
         cube1->position = Vector3(5, 1, 0);
         cube1->dim = Vector3(2, 2, 2);
+        cube1->color = RED;
 
         Entity *cube2 = AddEntity(state);
         cube2->type = ENTITY_CUBE;
         cube2->position = Vector3(-3, 2, -2);
         cube2->dim = Vector3(2, 4, 2);
+        cube2->color = BLUE;
 
         // this must always be here!
         state->initialized = True;
@@ -206,19 +210,24 @@ void UpdateAndRender(Game_Platform *platform) {
         if (entity->active && entity->type == ENTITY_CUBE) {
             const Vec3 dim = Vec3_Scale(entity->dim, 0.5f);
 
+            const float r = entity->color.x;
+            const float g = entity->color.y;
+            const float b = entity->color.z;
+            const float a = entity->color.w;
+
             const Vertex vertices[] = {
-                {-dim.x, -dim.y, dim.z, 1, 1, 1, 1, 0, 1}, {dim.x, -dim.y, dim.z, 1, 1, 1, 1, 1, 1},
-                {dim.x, dim.y, dim.z, 1, 1, 1, 1, 1, 0}, {-dim.x, dim.y, dim.z, 1, 1, 1, 1, 0, 0},
-                {dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 0, 1}, {-dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 1, 1},
-                {-dim.x, dim.y, -dim.z, 1, 1, 1, 1, 1, 0}, {dim.x, dim.y, -dim.z, 1, 1, 1, 1, 0, 0},
-                {-dim.x, dim.y, -dim.z, 1, 1, 1, 1, 0, 0}, {-dim.x, dim.y, dim.z, 1, 1, 1, 1, 0, 1},
-                {dim.x, dim.y, dim.z, 1, 1, 1, 1, 1, 1}, {dim.x, dim.y, -dim.z, 1, 1, 1, 1, 1, 0},
-                {-dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 0, 1}, {dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 1, 1},
-                {dim.x, -dim.y, dim.z, 1, 1, 1, 1, 1, 0}, {-dim.x, -dim.y, dim.z, 1, 1, 1, 1, 0, 0},
-                {dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 1, 1}, {dim.x, dim.y, -dim.z, 1, 1, 1, 1, 1, 0},
-                {dim.x, dim.y, dim.z, 1, 1, 1, 1, 0, 0}, {dim.x, -dim.y, dim.z, 1, 1, 1, 1, 0, 1},
-                {-dim.x, -dim.y, -dim.z, 1, 1, 1, 1, 0, 1}, {-dim.x, -dim.y, dim.z, 1, 1, 1, 1, 1, 1},
-                {-dim.x, dim.y, dim.z, 1, 1, 1, 1, 1, 0}, {-dim.x, dim.y, -dim.z, 1, 1, 1, 1, 0, 0}
+                {-dim.x, -dim.y, dim.z, r, g, b, a, 0, 1}, {dim.x, -dim.y, dim.z, r, g, b, a, 1, 1},
+                {dim.x, dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, dim.y, dim.z, r, g, b, a, 0, 0},
+                {dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {-dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1},
+                {-dim.x, dim.y, -dim.z, r, g, b, a, 1, 0}, {dim.x, dim.y, -dim.z, r, g, b, a, 0, 0},
+                {-dim.x, dim.y, -dim.z, r, g, b, a, 0, 0}, {-dim.x, dim.y, dim.z, r, g, b, a, 0, 1},
+                {dim.x, dim.y, dim.z, r, g, b, a, 1, 1}, {dim.x, dim.y, -dim.z, r, g, b, a, 1, 0},
+                {-dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1},
+                {dim.x, -dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, -dim.y, dim.z, r, g, b, a, 0, 0},
+                {dim.x, -dim.y, -dim.z, r, g, b, a, 1, 1}, {dim.x, dim.y, -dim.z, r, g, b, a, 1, 0},
+                {dim.x, dim.y, dim.z, r, g, b, a, 0, 0}, {dim.x, -dim.y, dim.z, r, g, b, a, 0, 1},
+                {-dim.x, -dim.y, -dim.z, r, g, b, a, 0, 1}, {-dim.x, -dim.y, dim.z, r, g, b, a, 1, 1},
+                {-dim.x, dim.y, dim.z, r, g, b, a, 1, 0}, {-dim.x, dim.y, -dim.z, r, g, b, a, 0, 0}
             };
             const unsigned short indices[] = {
                 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
