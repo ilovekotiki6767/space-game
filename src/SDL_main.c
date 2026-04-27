@@ -77,30 +77,6 @@ static void UnloadGameCode(GameCode *code) {
     }
 }
 
-Vertex vertices[] = {
-    {-1, -1, 1, 1, 0, 0, 1, 0, 1}, {1, -1, 1, 1, 0, 0, 1, 1, 1}, {1, 1, 1, 1, 0, 0, 1, 1, 0},
-    {-1, 1, 1, 1, 0, 0, 1, 0, 0},
-    {1, -1, -1, 0, 1, 0, 1, 0, 1}, {-1, -1, -1, 0, 1, 0, 1, 1, 1}, {-1, 1, -1, 0, 1, 0, 1, 1, 0},
-    {1, 1, -1, 0, 1, 0, 1, 0, 0},
-    {-1, 1, -1, 0, 0, 1, 1, 0, 0}, {-1, 1, 1, 0, 0, 1, 1, 0, 1}, {1, 1, 1, 0, 0, 1, 1, 1, 1},
-    {1, 1, -1, 0, 0, 1, 1, 1, 0},
-    {-1, -1, -1, 1, 1, 0, 1, 0, 1}, {1, -1, -1, 1, 1, 0, 1, 1, 1}, {1, -1, 1, 1, 1, 0, 1, 1, 0},
-    {-1, -1, 1, 1, 1, 0, 1, 0, 0},
-    {1, -1, -1, 1, 0, 1, 1, 1, 1}, {1, 1, -1, 1, 0, 1, 1, 1, 0}, {1, 1, 1, 1, 0, 1, 1, 0, 0},
-    {1, -1, 1, 1, 0, 1, 1, 0, 1},
-    {-1, -1, -1, 0, 1, 1, 1, 0, 1}, {-1, -1, 1, 0, 1, 1, 1, 1, 1}, {-1, 1, 1, 0, 1, 1, 1, 1, 0},
-    {-1, 1, -1, 0, 1, 1, 1, 0, 0}
-};
-
-Uint16 indices[] = {
-    0, 1, 2, 0, 2, 3, // front
-    4, 5, 6, 4, 6, 7, // back
-    8, 9, 10, 8, 10, 11, // top
-    12, 13, 14, 12, 14, 15, // bottom
-    16, 17, 18, 16, 18, 19, // right
-    20, 21, 22, 20, 22, 23 // left
-};
-
 SDL_GPUShader *CreateGPUShader(const char *filepath, const SDL_ShaderCross_ShaderStage stage) {
     SDL_IOStream *io = SDL_IOFromFile(filepath, "rb");
     if (!io) {
@@ -254,7 +230,10 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
 
         Mat4X4 mvp = Matrix_Multiply(view_projection, platform->render_entries[i].mesh.transform);
         SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
-        SDL_DrawGPUIndexedPrimitives(render_pass, render->index_count, 1, 0, 0, 0);
+        SDL_DrawGPUIndexedPrimitives(render_pass,
+                                     platform->render_entries[i].mesh.index_count, 1,
+                                     platform->render_entries[i].mesh.index_offset,
+                                     platform->render_entries[i].mesh.vertex_offset, 0);
     }
 }
 
@@ -475,51 +454,20 @@ int main(void) {
 
     SDL_GPUBuffer *mesh_vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                                                 .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                                                .size = sizeof(vertices)
+                                                                .size = Megabytes(1),
                                                             });
 
     SDL_GPUBuffer *mesh_index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                                                .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-                                                               .size = sizeof(indices)
+                                                               .size = Megabytes(1),
                                                            });
 
-    SDL_GPUTransferBuffer *transfer_buffer = SDL_CreateGPUTransferBuffer(device, &(SDL_GPUTransferBufferCreateInfo){
-                                                                             .usage =
-                                                                             SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                                                                             .size = sizeof(vertices) + sizeof(indices),
-                                                                         });
-
-    Uint8 *mesh_data = SDL_MapGPUTransferBuffer(device, transfer_buffer, false);
-    SDL_memcpy(mesh_data, vertices, sizeof(vertices));
-    SDL_memcpy(mesh_data + sizeof(vertices), indices, sizeof(indices));
-    SDL_UnmapGPUTransferBuffer(device, transfer_buffer);
-
-    SDL_GPUCommandBuffer *upload_command_buffer = SDL_AcquireGPUCommandBuffer(device);
-    SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(upload_command_buffer);
-
-    SDL_UploadToGPUBuffer(copy_pass, &(SDL_GPUTransferBufferLocation){
-                              .transfer_buffer = transfer_buffer,
-                              .offset = 0
-                          },
-                          &(SDL_GPUBufferRegion){
-                              .buffer = mesh_vertex_buffer,
-                              .offset = 0,
-                              .size = sizeof(vertices)
-                          }, true);
-
-    SDL_UploadToGPUBuffer(copy_pass, &(SDL_GPUTransferBufferLocation){
-                              .transfer_buffer = transfer_buffer,
-                              .offset = sizeof(vertices)
-                          },
-                          &(SDL_GPUBufferRegion){
-                              .buffer = mesh_index_buffer,
-                              .offset = 0,
-                              .size = sizeof(indices)
-                          }, true);
-
-    SDL_EndGPUCopyPass(copy_pass);
-    SDL_SubmitGPUCommandBuffer(upload_command_buffer);
-    SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
+    SDL_GPUTransferBuffer *mesh_transfer_buffer = SDL_CreateGPUTransferBuffer(
+        device, &(SDL_GPUTransferBufferCreateInfo){
+            .usage =
+            SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+            .size = Megabytes(1) + Megabytes(1),
+        });
 
     SDL_GPUSampler *texture_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
                                                                .min_filter = SDL_GPU_FILTER_LINEAR,
@@ -628,16 +576,16 @@ int main(void) {
 
     SDL_GPUBuffer *text_vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                                                 .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                                                .size = 1024 * 1024,
+                                                                .size = Megabytes(1),
                                                             });
     SDL_GPUBuffer *text_index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                                                .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-                                                               .size = 1024 * 1024,
+                                                               .size = Megabytes(1),
                                                            });
     SDL_GPUTransferBuffer *text_transfer_buffer = SDL_CreateGPUTransferBuffer(
         device, &(SDL_GPUTransferBufferCreateInfo){
             .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-            .size = 1024 * 1024 + 1024 * 1024
+            .size = Megabytes(1) + Megabytes(1)
         });
 
     SDL_GPUSampler *text_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
@@ -740,8 +688,7 @@ int main(void) {
                     Game_Key key = GAME_KEY_NONE;
                     if (event.button.button == SDL_BUTTON_LEFT) {
                         key = GAME_KEY_MOUSE_LEFT;
-                    }
-                    else if (event.button.button == SDL_BUTTON_RIGHT) {
+                    } else if (event.button.button == SDL_BUTTON_RIGHT) {
                         key = GAME_KEY_MOUSE_RIGHT;
                     }
 
@@ -818,8 +765,8 @@ int main(void) {
             depth_texture_width = width, depth_texture_height = height;
         }
 
-        platform.width = (float)width;
-        platform.height = (float)height;
+        platform.width = (float) width;
+        platform.height = (float) height;
 
         platform.render_entry_count = 0;
 
@@ -890,11 +837,45 @@ int main(void) {
             }
         }
 
+        int current_transient_vertex_count = platform.transient_vertex_count;
+        int current_transient_index_count = platform.transient_index_count;
+        platform.transient_vertex_count = 0;
+        platform.transient_index_count = 0;
+
         SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(device);
         if (!command_buffer) {
             SDL_Log("%s", SDL_GetError());
 
             continue;
+        }
+
+        if (current_transient_vertex_count > 0 && current_transient_index_count > 0) {
+            size_t mesh_vertex_buffer_size = current_transient_vertex_count * sizeof(Vertex);
+            size_t mesh_index_buffer_size = current_transient_index_count * sizeof(Uint16);
+
+            Uint8 *mesh_data = SDL_MapGPUTransferBuffer(device, mesh_transfer_buffer, false);
+            SDL_memcpy(mesh_data, platform.transient_vertices, mesh_vertex_buffer_size);
+            SDL_memcpy(mesh_data + mesh_vertex_buffer_size, platform.transient_indices, mesh_index_buffer_size);
+            SDL_UnmapGPUTransferBuffer(device, mesh_transfer_buffer);
+
+            SDL_GPUCopyPass *mesh_copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+            SDL_UploadToGPUBuffer(mesh_copy_pass, &(SDL_GPUTransferBufferLocation){
+                                      .transfer_buffer = mesh_transfer_buffer,
+                                      .offset = 0
+                                  }, &(SDL_GPUBufferRegion){
+                                      .buffer = mesh_vertex_buffer,
+                                      .offset = 0,
+                                      .size = mesh_vertex_buffer_size
+                                  }, true);
+            SDL_UploadToGPUBuffer(mesh_copy_pass, &(SDL_GPUTransferBufferLocation){
+                                      .transfer_buffer = mesh_transfer_buffer,
+                                      .offset = (Uint32) mesh_vertex_buffer_size
+                                  }, &(SDL_GPUBufferRegion){
+                                      .buffer = mesh_index_buffer,
+                                      .offset = 0,
+                                      .size = mesh_index_buffer_size,
+                                  }, true);
+            SDL_EndGPUCopyPass(mesh_copy_pass);
         }
 
         if (text_draw_call_count > 0) {
@@ -1013,6 +994,7 @@ int main(void) {
     SDL_ReleaseGPUBuffer(device, mesh_vertex_buffer);
     SDL_ReleaseGPUBuffer(device, mesh_index_buffer);
     SDL_ReleaseGPUTransferBuffer(device, text_transfer_buffer);
+    SDL_ReleaseGPUTransferBuffer(device, mesh_transfer_buffer);
     TTF_DestroyGPUTextEngine(text_engine);
     SDL_ReleaseWindowFromGPUDevice(device, window);
     SDL_DestroyGPUDevice(device);

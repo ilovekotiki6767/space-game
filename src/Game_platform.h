@@ -8,9 +8,6 @@
 
 // Macros
 
-#define Assert(expression) if(!(expression)) { *(volatile int *)0 = 0; }
-#define Align8(value) (((value) + 7) & ~7)
-
 #define Bool int
 #define True 1
 #define False 0
@@ -41,6 +38,9 @@ typedef struct {
         struct {
             Mat4X4 transform;
             Game_TextureHandle texture_handle;
+            int index_offset;
+            int index_count;
+            int vertex_offset;
         } mesh;
 
         struct {
@@ -74,6 +74,12 @@ typedef struct {
 
     Game_ButtonState input[GAME_KEY_COUNT];
 
+    Vertex transient_vertices[16384];
+    int transient_vertex_count;
+
+    unsigned short transient_indices[32768];
+    int transient_index_count;
+
     Game_RenderEntry render_entries[1024];
     int render_entry_count;
 
@@ -100,13 +106,28 @@ typedef struct {
 // Functions
 
 static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
-                                     const Game_TextureHandle texture_handle) {
-    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
+                                     const Game_TextureHandle texture_handle,
+                                     const Vertex *vertices, const int vertex_count,
+                                     const unsigned short *indices, const int index_count) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries) &&
+        platform->transient_vertex_count + vertex_count <= ArrayCount(platform->transient_vertices) &&
+        platform->transient_index_count + index_count <= ArrayCount(platform->transient_indices)) {
         Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
 
         entry->type = GAME_RENDER_ENTRY_MESH;
         entry->mesh.transform = transform;
         entry->mesh.texture_handle = texture_handle;
+        entry->mesh.vertex_offset = platform->transient_vertex_count;
+        entry->mesh.index_offset = platform->transient_index_count;
+        entry->mesh.index_count = index_count;
+
+        for (int i = 0; i < vertex_count; ++i) {
+            platform->transient_vertices[platform->transient_vertex_count++] = vertices[i];
+        }
+
+        for (int i = 0; i < index_count; ++i) {
+            platform->transient_indices[platform->transient_index_count++] = indices[i];
+        }
     }
 }
 
