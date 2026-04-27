@@ -8,6 +8,9 @@
 
 // Macros
 
+#define Assert(expression) if(!(expression)) { *(volatile int *)0 = 0; }
+#define Align8(value) (((value) + 7) & ~7)
+
 #define Bool int
 #define True 1
 #define False 0

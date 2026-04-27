@@ -456,6 +456,8 @@ int main(void) {
         return 1;
     }
 
+    SDL_Log("SDL_GPU driver: %s\n", SDL_GetGPUDeviceDriver(device));
+
     if (!SDL_ClaimWindowForGPUDevice(device, window)) {
         SDL_Log("%s", SDL_GetError());
 
