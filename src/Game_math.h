@@ -51,6 +51,10 @@ static float Tan(const float x) {
     return Sin(x) / c;
 }
 
+static float Lerp(const float a, const float b, const float t) {
+    return a + t * (b - a);
+}
+
 // NOTE: see https://github.com/libsdl-org/SDL_ttf/blob/main/examples/testgputext/SDL_math3d.h
 
 typedef struct {

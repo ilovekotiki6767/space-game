@@ -62,6 +62,7 @@ typedef struct {
     Vec3 velocity;
 
     float pitch, yaw;
+    float target_pitch, target_yaw;
     Bool grounded;
 
     Entity entities[256];
@@ -94,6 +95,8 @@ void UpdateAndRender(Game_Platform *platform) {
         state->velocity = Vector3(0, 0, 0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
+        state->target_yaw = 0.0f;
+        state->target_pitch = 0.0f;
         state->grounded = False;
 
         Entity *floor = AddEntity(state);
@@ -121,17 +124,28 @@ void UpdateAndRender(Game_Platform *platform) {
     if (!platform->mouse_locked) {
         if (WasPressed(platform->input[GAME_KEY_MOUSE_LEFT])) {
             platform->mouse_locked = True;
+
+            state->target_yaw = state->yaw;
+            state->target_pitch = state->pitch;
         }
     } else {
         if (WasPressed(platform->input[GAME_KEY_ESCAPE])) {
             platform->mouse_locked = False;
         }
 
-        state->yaw += platform->mouse_delta_x * 0.001f;
-        state->pitch -= platform->mouse_delta_y * 0.001f;
+        state->target_yaw += platform->mouse_delta_x * 0.0015f;
+        state->target_pitch -= platform->mouse_delta_y * 0.0015f;
 
-        state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
+        state->target_pitch = Clamp(state->target_pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
+
+    float t = 20.0f * platform->delta_time;
+    if (t > 1.0f) {
+        t = 1.0f;
+    }
+
+    state->yaw = Lerp(state->yaw, state->target_yaw, t);
+    state->pitch = Lerp(state->pitch, state->target_pitch, t);
 
     switch (state->mode) {
         case MODE_MENU: {
