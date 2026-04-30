@@ -49,7 +49,15 @@ static AABB GetEntityAABB(const Entity *entity) {
     };
 }
 
+typedef enum {
+    MODE_MENU,
+    MODE_PLAYING,
+    MODE_EDITOR,
+} Mode;
+
 typedef struct {
+    Mode mode;
+
     Vec3 position;
     Vec3 velocity;
 
@@ -79,6 +87,8 @@ void UpdateAndRender(Game_Platform *platform) {
 
     if (!state->initialized) {
         state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 24.0f);
+
+        state->mode = MODE_EDITOR;
 
         state->position = Vector3(0, 1.5f, 5.0f);
         state->velocity = Vector3(0, 0, 0);
@@ -123,86 +133,150 @@ void UpdateAndRender(Game_Platform *platform) {
         state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
 
-    // this includes pitch
-    Vec3 forward = Vector3(-Cos(state->pitch) * Sin(state->yaw), Sin(state->pitch),
-                           -Cos(state->pitch) * Cos(state->yaw));
-    forward = Vec3_Normalize(forward);
-
-    Vec3 move_forward = Vector3(-Sin(state->yaw), 0, -Cos(state->yaw));
-    move_forward = Vec3_Normalize(move_forward);
-
-    Vec3 right = Vector3(Cos(state->yaw), 0, -Sin(state->yaw));
-    right = Vec3_Normalize(right);
-
-    const float speed = 5.0f * platform->delta_time;
-
-    Vec3 delta_position = Vector3(0, 0, 0);
-
-    if (IsDown(platform->input[GAME_KEY_W])) {
-        delta_position = Vec3_Add(delta_position, Vec3_Scale(move_forward, speed));
-    }
-    if (IsDown(platform->input[GAME_KEY_S])) {
-        delta_position = Vec3_Sub(delta_position, Vec3_Scale(move_forward, speed));
-    }
-    if (IsDown(platform->input[GAME_KEY_A])) {
-        delta_position = Vec3_Add(delta_position, Vec3_Scale(right, speed));
-    }
-    if (IsDown(platform->input[GAME_KEY_D])) {
-        delta_position = Vec3_Sub(delta_position, Vec3_Scale(right, speed));
-    }
-
-    if (!state->grounded) {
-        state->velocity.y += GRAVITY * platform->delta_time;
-    }
-
-    delta_position = Vec3_Scale(Vec3_Normalize(delta_position), speed);
-    delta_position.y += state->velocity.y * platform->delta_time;
-
-    state->position.x += delta_position.x;
-    for (int i = 0; i < state->entity_count; ++i) {
-        const Entity *entity = &state->entities[i];
-
-        if (entity->active && OverlapAABB(GetPlayerAABB(state->position), GetEntityAABB(entity))) {
-            state->position.x -= delta_position.x;
+    switch (state->mode) {
+        case MODE_MENU: {
+            // TODO
         }
-    }
+        break;
 
-    state->position.y += delta_position.y;
-    state->grounded = False;
-    for (int i = 0; i < state->entity_count; ++i) {
-        const Entity *entity = &state->entities[i];
+        case MODE_EDITOR: {
+            Vec3 forward = Vector3(-Cos(state->pitch) * Sin(state->yaw), Sin(state->pitch),
+                                   -Cos(state->pitch) * Cos(state->yaw));
+            forward = Vec3_Normalize(forward);
 
-        if (!entity->active) {
-            continue;
-        }
+            Vec3 right = Vector3(Cos(state->yaw), 0, -Sin(state->yaw));
+            right = Vec3_Normalize(right);
 
-        const AABB aabb = GetEntityAABB(entity);
-        if (OverlapAABB(GetPlayerAABB(state->position), aabb)) {
-            if (delta_position.y <= 0) {
-                state->position.y = aabb.max.y + PLAYER_HEIGHT;
-                state->grounded = True;
-            } else {
-                state->position.y = aabb.min.y - PLAYER_HEAD_CLEARANCE;
+            const Vec3 up = Vector3(0, 1, 0);
+
+            const float speed = 10.0f * platform->delta_time;
+
+            Vec3 direction = Vector3(0, 0, 0);
+
+            if (IsDown(platform->input[GAME_KEY_W])) {
+                direction = Vec3_Add(direction, forward);
+            }
+            if (IsDown(platform->input[GAME_KEY_S])) {
+                direction = Vec3_Sub(direction, forward);
+            }
+            if (IsDown(platform->input[GAME_KEY_A])) {
+                direction = Vec3_Add(direction, right);
+            }
+            if (IsDown(platform->input[GAME_KEY_D])) {
+                direction = Vec3_Sub(direction, right);
+            }
+            if (IsDown(platform->input[GAME_KEY_SPACE])) {
+                direction = Vec3_Add(direction, up);
+            }
+            if (IsDown(platform->input[GAME_KEY_LEFT_CTRL])) {
+                direction = Vec3_Sub(direction, up);
             }
 
-            state->velocity.y = 0.0f;
-            break;
+            if (direction.x != 0.0f || direction.y != 0.0f || direction.z != 0.0f) {
+                direction = Vec3_Normalize(direction);
+                state->position = Vec3_Add(state->position, Vec3_Scale(direction, speed));
+            }
+
+            const Vec3 target = Vec3_Add(state->position, forward);
+            platform->view_projection = Matrix_Multiply(
+                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 0.1f, 100.0f),
+                Matrix_LookAt(state->position, target, Vector3(0, 1, 0)));
+
+            // TODO: funny way of doing crosshair until we can draw sprites
+            Game_PushTextRenderEntry(platform, state->debug_font, platform->width / 2, platform->height / 2, "+");
+            Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
+                                      "%.1fms", platform->frame_time_ms);
         }
-    }
+        break;
 
-    state->position.z += delta_position.z;
-    for (int i = 0; i < state->entity_count; ++i) {
-        const Entity *entity = &state->entities[i];
+        case MODE_PLAYING: {
+            // this includes pitch
+            Vec3 forward = Vector3(-Cos(state->pitch) * Sin(state->yaw), Sin(state->pitch),
+                                   -Cos(state->pitch) * Cos(state->yaw));
+            forward = Vec3_Normalize(forward);
 
-        if (entity->active && OverlapAABB(GetPlayerAABB(state->position), GetEntityAABB(entity))) {
-            state->position.z -= delta_position.z;
+            Vec3 move_forward = Vector3(-Sin(state->yaw), 0, -Cos(state->yaw));
+            move_forward = Vec3_Normalize(move_forward);
+
+            Vec3 right = Vector3(Cos(state->yaw), 0, -Sin(state->yaw));
+            right = Vec3_Normalize(right);
+
+            const float speed = 5.0f * platform->delta_time;
+
+            Vec3 delta_position = Vector3(0, 0, 0);
+
+            if (IsDown(platform->input[GAME_KEY_W])) {
+                delta_position = Vec3_Add(delta_position, Vec3_Scale(move_forward, speed));
+            }
+            if (IsDown(platform->input[GAME_KEY_S])) {
+                delta_position = Vec3_Sub(delta_position, Vec3_Scale(move_forward, speed));
+            }
+            if (IsDown(platform->input[GAME_KEY_A])) {
+                delta_position = Vec3_Add(delta_position, Vec3_Scale(right, speed));
+            }
+            if (IsDown(platform->input[GAME_KEY_D])) {
+                delta_position = Vec3_Sub(delta_position, Vec3_Scale(right, speed));
+            }
+
+            if (!state->grounded) {
+                state->velocity.y += GRAVITY * platform->delta_time;
+            }
+
+            delta_position = Vec3_Scale(Vec3_Normalize(delta_position), speed);
+            delta_position.y += state->velocity.y * platform->delta_time;
+
+            state->position.x += delta_position.x;
+            for (int i = 0; i < state->entity_count; ++i) {
+                const Entity *entity = &state->entities[i];
+
+                if (entity->active && OverlapAABB(GetPlayerAABB(state->position), GetEntityAABB(entity))) {
+                    state->position.x -= delta_position.x;
+                }
+            }
+
+            state->position.y += delta_position.y;
+            state->grounded = False;
+            for (int i = 0; i < state->entity_count; ++i) {
+                const Entity *entity = &state->entities[i];
+
+                if (!entity->active) {
+                    continue;
+                }
+
+                const AABB aabb = GetEntityAABB(entity);
+                if (OverlapAABB(GetPlayerAABB(state->position), aabb)) {
+                    if (delta_position.y <= 0) {
+                        state->position.y = aabb.max.y + PLAYER_HEIGHT;
+                        state->grounded = True;
+                    } else {
+                        state->position.y = aabb.min.y - PLAYER_HEAD_CLEARANCE;
+                    }
+
+                    state->velocity.y = 0.0f;
+                    break;
+                }
+            }
+
+            state->position.z += delta_position.z;
+            for (int i = 0; i < state->entity_count; ++i) {
+                const Entity *entity = &state->entities[i];
+
+                if (entity->active && OverlapAABB(GetPlayerAABB(state->position), GetEntityAABB(entity))) {
+                    state->position.z -= delta_position.z;
+                }
+            }
+
+            const Vec3 target = Vec3_Add(state->position, forward);
+            platform->view_projection = Matrix_Multiply(
+                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 0.1f, 100.0f),
+                Matrix_LookAt(state->position, target, Vector3(0, 1, 0)));
+
+            Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
+                                      "%.1fms", platform->frame_time_ms);
         }
+        break;
+        default: break; // TODO: InvalidCodePath
     }
-
-    const Vec3 target = Vec3_Add(state->position, forward);
-    platform->view_projection = Matrix_Multiply(
-        Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 0.1f, 100.0f),
-        Matrix_LookAt(state->position, target, Vector3(0, 1, 0)));
 
     for (int i = 0; i < state->entity_count; ++i) {
         const Entity *entity = &state->entities[i];
@@ -257,7 +331,4 @@ void UpdateAndRender(Game_Platform *platform) {
                 TEXTURE_HANDLE_MAGIC_PIXEL, vertices, 24, indices, 36);
         }
     }
-
-    Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
-                              "%.1fms", platform->frame_time_ms);
 }
