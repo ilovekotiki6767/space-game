@@ -66,6 +66,8 @@ typedef enum {
     GAME_KEY_ESCAPE, GAME_KEY_SPACE, GAME_KEY_LEFT_CTRL,
     GAME_KEY_MOUSE_LEFT, GAME_KEY_MOUSE_RIGHT,
 
+    GAME_KEY_F11,
+
     GAME_KEY_COUNT,
 } Game_Key;
 
@@ -87,6 +89,8 @@ typedef struct {
     float delta_time;
     /// updated every half a second
     float frame_time_ms;
+
+    Bool fullscreen;
 
     Bool mouse_locked;
     float mouse_delta_x, mouse_delta_y;

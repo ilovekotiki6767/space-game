@@ -254,6 +254,7 @@ static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
         case SDL_SCANCODE_ESCAPE: return GAME_KEY_ESCAPE;
         case SDL_SCANCODE_SPACE: return GAME_KEY_SPACE;
         case SDL_SCANCODE_LCTRL: return GAME_KEY_LEFT_CTRL;
+        case SDL_SCANCODE_F11: return GAME_KEY_F11;
 
         default: return GAME_KEY_NONE;
     }
@@ -789,6 +790,7 @@ int main(void) {
         }
 
         SDL_SetWindowRelativeMouseMode(window, platform.mouse_locked);
+        SDL_SetWindowFullscreen(window, platform.fullscreen);
 
         int text_vertex_count = 0;
         int text_index_count = 0;

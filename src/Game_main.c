@@ -133,6 +133,16 @@ void UpdateAndRender(Game_Platform *platform) {
         state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
 
+    if (!platform->fullscreen) {
+        if (WasPressed(platform->input[GAME_KEY_F11])) {
+            platform->fullscreen = True;
+        }
+    } else {
+        if (WasPressed(platform->input[GAME_KEY_F11])) {
+            platform->fullscreen = False;
+        }
+    }
+
     switch (state->mode) {
         case MODE_MENU: {
             // TODO
