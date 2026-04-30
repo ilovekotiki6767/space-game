@@ -198,11 +198,13 @@ static void InitializeRender(Render *render, SDL_GPUGraphicsPipeline *pipeline, 
 
 static void FlushRenderEntries(const Render *render, const Game_Platform *platform,
                                SDL_GPUCommandBuffer *command_buffer,
-                               SDL_GPURenderPass *render_pass,
-                               const Mat4X4 view_projection) {
+                               SDL_GPURenderPass *render_pass) {
     if (platform->render_entry_count == 0) {
         return;
     }
+
+    const Mat4X4 view_projection = platform->view_projection;
+    const Mat4X4 orthographic = Matrix_OrthographicScreen(platform->width, platform->height);
 
     SDL_BindGPUGraphicsPipeline(render_pass, render->pipeline);
     SDL_BindGPUVertexBuffers(render_pass, 0, &(SDL_GPUBufferBinding){
@@ -215,6 +217,10 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
                            }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
     for (int i = 0; i < platform->render_entry_count; ++i) {
+        if (platform->render_entries[i].type != GAME_RENDER_ENTRY_MESH) {
+            continue;
+        }
+
         const Game_TextureHandle texture_handle = platform->render_entries[i].mesh.texture_handle;
 
         int texture_index = 0;
@@ -228,7 +234,9 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
                                         .sampler = render->sampler,
                                     }, 1);
 
-        Mat4X4 mvp = Matrix_Multiply(view_projection, platform->render_entries[i].mesh.transform);
+        const Mat4X4 projection = platform->render_entries[i].mesh.screen_space ? orthographic : view_projection;
+        Mat4X4 mvp = Matrix_Multiply(projection, platform->render_entries[i].mesh.transform);
+
         SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
         SDL_DrawGPUIndexedPrimitives(render_pass,
                                      platform->render_entries[i].mesh.index_count, 1,
@@ -942,7 +950,7 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            FlushRenderEntries(&render, &platform, command_buffer, render_pass, platform.view_projection);;
+            FlushRenderEntries(&render, &platform, command_buffer, render_pass);;
 
             if (text_draw_call_count > 0) {
                 SDL_BindGPUGraphicsPipeline(render_pass, text_pipeline);

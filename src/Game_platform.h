@@ -41,6 +41,7 @@ typedef struct {
             int index_offset;
             int index_count;
             int vertex_offset;
+            Bool screen_space;
         } mesh;
 
         struct {
@@ -103,12 +104,17 @@ typedef struct {
     Game_FontHandle (*LoadFontFile)(const char *path, float size);
 } Game_Platform;
 
+enum {
+    PUSH_MESH_REGULAR = 0,
+    PUSH_MESH_SCREEN_SPACE = 1,
+};
+
 // Functions
 
 static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
                                      const Game_TextureHandle texture_handle,
                                      const Vertex *vertices, const int vertex_count,
-                                     const unsigned short *indices, const int index_count) {
+                                     const unsigned short *indices, const int index_count, const Bool screen_space) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries) &&
         platform->transient_vertex_count + vertex_count <= ArrayCount(platform->transient_vertices) &&
         platform->transient_index_count + index_count <= ArrayCount(platform->transient_indices)) {
@@ -120,6 +126,7 @@ static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 trans
         entry->mesh.vertex_offset = platform->transient_vertex_count;
         entry->mesh.index_offset = platform->transient_index_count;
         entry->mesh.index_count = index_count;
+        entry->mesh.screen_space = screen_space;
 
         for (int i = 0; i < vertex_count; ++i) {
             platform->transient_vertices[platform->transient_vertex_count++] = vertices[i];
@@ -129,6 +136,24 @@ static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 trans
             platform->transient_indices[platform->transient_index_count++] = indices[i];
         }
     }
+}
+
+static void Game_PushSprite(Game_Platform *platform, const Game_TextureHandle texture_handle,
+                            const float x, const float y, const float w, const float h, const Vec4 color) {
+    const float r = color.x, g = color.y, b = color.z, a = color.w;
+
+    const Vertex vertices[] = {
+        {x, y, 0, 0, 0, 1, r, g, b, a, 0, 0},
+        {x + w, y, 0, 0, 0, 1, r, g, b, a, 1, 0},
+        {x + w, y + h, 0, 0, 0, 1, r, g, b, a, 1, 1},
+        {x, y + h, 0, 0, 0, 1, r, g, b, a, 0, 1}
+    };
+
+    const unsigned short indices[] = {0, 2, 1, 0, 3, 2};
+
+    Game_PushMeshRenderEntry(
+        platform, Matrix_Translation(0, 0, 0),
+        texture_handle, vertices, 4, indices, 6, PUSH_MESH_SCREEN_SPACE);
 }
 
 static void Game_PushTextRenderEntry(Game_Platform *platform, const Game_FontHandle font_handle, const float x,

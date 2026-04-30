@@ -88,7 +88,7 @@ void UpdateAndRender(Game_Platform *platform) {
     if (!state->initialized) {
         state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 24.0f);
 
-        state->mode = MODE_EDITOR;
+        state->mode = MODE_PLAYING;
 
         state->position = Vector3(0, 1.5f, 5.0f);
         state->velocity = Vector3(0, 0, 0);
@@ -182,8 +182,11 @@ void UpdateAndRender(Game_Platform *platform) {
                 Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 0.1f, 100.0f),
                 Matrix_LookAt(state->position, target, Vector3(0, 1, 0)));
 
-            // TODO: funny way of doing crosshair until we can draw sprites
             Game_PushTextRenderEntry(platform, state->debug_font, platform->width / 2, platform->height / 2, "+");
+            // Game_PushSprite(platform, TEXTURE_HANDLE_MAGIC_PIXEL,
+            //                 platform->width / 2.0f - 2.0f,
+            //                 platform->height / 2.0f - 2.0f,
+            //                 4.0f, 4.0f, GREEN);
             Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
                                       "%.1fms", platform->frame_time_ms);
         }
@@ -328,7 +331,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             Game_PushMeshRenderEntry(
                 platform, Matrix_Translation(entity->position.x, entity->position.y, entity->position.z),
-                TEXTURE_HANDLE_MAGIC_PIXEL, vertices, 24, indices, 36);
+                TEXTURE_HANDLE_MAGIC_PIXEL, vertices, 24, indices, 36, PUSH_MESH_REGULAR);
         }
     }
 }
