@@ -53,6 +53,15 @@ typedef struct {
 } Game_RenderEntry;
 
 typedef struct {
+    int samples_per_second;
+    // how many samples the game should write this exact frame
+    int sample_count;
+    int channels;
+    // the backing buffer to write into
+    short *samples;
+} Game_SoundBuffer;
+
+typedef struct {
     int half_transition_count;
     Bool ended_down;
 } Game_ButtonState;
@@ -74,6 +83,8 @@ typedef enum {
 typedef struct {
     void *permanent_storage;
     unsigned long long permanent_storage_size;
+
+    Game_SoundBuffer sound_buffer;
 
     Game_ButtonState input[GAME_KEY_COUNT];
 

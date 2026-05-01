@@ -64,6 +64,10 @@ typedef struct {
     float pitch, yaw;
     Bool grounded;
 
+#if 0
+    float sine;
+#endif
+
     Entity entities[256];
     int entity_count;
 
@@ -89,6 +93,9 @@ void UpdateAndRender(Game_Platform *platform) {
         state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 24.0f);
 
         state->mode = MODE_PLAYING;
+#if 0
+        state->sine = 0.0f;
+#endif
 
         state->position = Vector3(0, 1.5f, 5.0f);
         state->velocity = Vector3(0, 0, 0);
@@ -142,6 +149,28 @@ void UpdateAndRender(Game_Platform *platform) {
             platform->fullscreen = False;
         }
     }
+
+#if 0
+    Game_SoundBuffer *sound_buffer = &platform->sound_buffer;
+
+    int tone_hz = 256;
+    int tone_volume = 3000;
+    int wave_period = sound_buffer->samples_per_second / tone_hz;
+
+    short *sample_out = sound_buffer->samples;
+    for (int i = 0; i < sound_buffer->sample_count; ++i) {
+        float sine_value = Sin(state->sine);
+        short sample_value = (short)(sine_value * tone_volume);
+
+        *sample_out++ = sample_value;
+        *sample_out++ = sample_value;
+
+        state->sine += 2.0f * PI * 1.0f / (float)wave_period;
+        if (state->sine > 2.0f * PI) {
+            state->sine -= 2.0f * PI;
+        }
+    }
+#endif
 
     switch (state->mode) {
         case MODE_MENU: {

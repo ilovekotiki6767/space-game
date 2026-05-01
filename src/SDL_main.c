@@ -416,7 +416,7 @@ static Game_FontHandle Platform_LoadFontFile(const char *path, const float size)
 }
 
 int main(void) {
-    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("%s", SDL_GetError());
 
         return 1;
@@ -640,6 +640,25 @@ int main(void) {
 
     GameCode game_code = LoadGameCode(GAME_LIB_PATH);
 
+    SDL_AudioSpec audio_spec = {
+        .format = SDL_AUDIO_S16LE,
+        .channels = 2,
+        .freq = 48000,
+    };
+
+    SDL_AudioStream *audio_stream = SDL_OpenAudioDeviceStream(
+        SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, NULL, NULL);
+
+    if (!audio_stream) {
+        SDL_Log("%s", SDL_GetError());
+    } else {
+        // since the streams are opened paused
+        SDL_ResumeAudioDevice(SDL_GetAudioStreamDevice(audio_stream));
+    }
+
+    int max_audio_samples = audio_spec.freq * audio_spec.channels;
+    short *audio_backing_buffer = SDL_malloc(max_audio_samples * sizeof(short));
+
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
     SDL_GPUTexture *msaa_texture = NULL;
@@ -785,8 +804,32 @@ int main(void) {
 
         platform.render_entry_count = 0;
 
+        platform.sound_buffer.samples = audio_backing_buffer;
+        platform.sound_buffer.samples_per_second = audio_spec.freq;
+        platform.sound_buffer.channels = audio_spec.channels;
+        platform.sound_buffer.sample_count = 0;
+
+        if (audio_stream) {
+            int target_queue_bytes = (int)(audio_spec.freq * audio_spec.channels * sizeof(short)) / 15;
+            int queued_bytes = SDL_GetAudioStreamQueued(audio_stream);
+            int bytes_to_write = target_queue_bytes - queued_bytes;
+
+            // don't ask for negative samples just in case there's an overshot
+            if (bytes_to_write < 0) {
+                bytes_to_write = 0;
+            }
+
+            int sample_count_to_write = bytes_to_write / (audio_spec.channels * (int)sizeof(short));
+            platform.sound_buffer.sample_count = sample_count_to_write;
+        }
+
         if (game_code.update_and_render) {
             game_code.update_and_render(&platform);
+        }
+
+        if (audio_stream && platform.sound_buffer.sample_count > 0) {
+            int bytes_written = platform.sound_buffer.sample_count * audio_spec.channels * (int)sizeof(short);
+            SDL_PutAudioStreamData(audio_stream, platform.sound_buffer.samples, bytes_written);
         }
 
         SDL_SetWindowRelativeMouseMode(window, platform.mouse_locked);
@@ -1017,7 +1060,7 @@ int main(void) {
     SDL_DestroyWindow(window);
     TTF_Quit();
     SDL_ShaderCross_Quit();
-    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    SDL_Quit();
 
     return 0;
 }
