@@ -2,6 +2,7 @@
 #define GAMING_GAME_PLATFORM_H
 
 #include "Game_math.h"
+#include "Game_math64.h"
 #include "Game_string.h"
 // one of the C headers that are available without standard library
 #include <stdarg.h>
@@ -49,13 +50,13 @@ static TemporaryMemory BeginTemporaryMemory(MemoryArena *arena) {
     return temporary_memory;
 }
 
-static void EndTemporaryMemory(TemporaryMemory temporary_memory) {
+static void EndTemporaryMemory(const TemporaryMemory temporary_memory) {
     temporary_memory.arena->used = temporary_memory.mark;
     temporary_memory.arena->temp_count--;
 }
 
 static void InitializeArena(MemoryArena *arena, void *base, const unsigned long long size) {
-    arena->base = (unsigned char*)base;
+    arena->base = (unsigned char *) base;
     arena->size = size;
     arena->used = 0;
 }
@@ -101,7 +102,7 @@ typedef struct {
     union {
         struct {
             Mat4X4 transform;
-            Game_TextureHandle texture_handle;
+            Game_TextureHandle texture_handles[4];
             int index_offset;
             int index_count;
             int vertex_offset;
@@ -164,6 +165,7 @@ typedef struct {
     float delta_time;
     /// updated every half a second
     float frame_time_ms;
+    double elapsed_time;
 
     Bool fullscreen;
 
@@ -195,7 +197,7 @@ enum {
 // Functions
 
 static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
-                                     const Game_TextureHandle texture_handle,
+                                     const Game_TextureHandle texture_handles[4],
                                      const Vertex *vertices, const int vertex_count,
                                      const unsigned short *indices, const int index_count, const Bool screen_space) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries) &&
@@ -205,11 +207,14 @@ static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 trans
 
         entry->type = GAME_RENDER_ENTRY_MESH;
         entry->mesh.transform = transform;
-        entry->mesh.texture_handle = texture_handle;
         entry->mesh.vertex_offset = platform->transient_vertex_count;
         entry->mesh.index_offset = platform->transient_index_count;
         entry->mesh.index_count = index_count;
         entry->mesh.screen_space = screen_space;
+
+        for (int i = 0; i < 4; ++i) {
+            entry->mesh.texture_handles[i] = texture_handles ? texture_handles[i] : 0;
+        }
 
         for (int i = 0; i < vertex_count; ++i) {
             platform->transient_vertices[platform->transient_vertex_count++] = vertices[i];
@@ -236,7 +241,7 @@ static void Game_PushSprite(Game_Platform *platform, const Game_TextureHandle te
 
     Game_PushMeshRenderEntry(
         platform, Matrix_Translation(Vector3(0, 0, 0)),
-        texture_handle, vertices, 4, indices, 6, PUSH_MESH_SCREEN_SPACE);
+        &texture_handle, vertices, 4, indices, 6, PUSH_MESH_SCREEN_SPACE);
 }
 
 static void Game_PushTextRenderEntry(Game_Platform *platform, const Game_FontHandle font_handle, const float x,

@@ -187,6 +187,12 @@ typedef struct {
     SDL_GPUSampler *sampler;
 } Render;
 
+typedef struct {
+    Mat4X4 mvp;
+    Mat4X4 model;
+    Vec4 camera;
+} MeshVertexUBO;
+
 static void InitializeRender(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
                              SDL_GPUBuffer *index_buffer, const int index_count, SDL_GPUSampler *sampler) {
     render->pipeline = pipeline;
@@ -216,23 +222,29 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
                                .offset = 0,
                            }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
+    const float ubo[4] = {platform->elapsed_time, 0.0f, 0.0f, 0.0f};
+    SDL_PushGPUFragmentUniformData(command_buffer, 0, ubo, sizeof(ubo));
+
     for (int i = 0; i < platform->render_entry_count; ++i) {
         if (platform->render_entries[i].type != GAME_RENDER_ENTRY_MESH) {
             continue;
         }
 
-        const Game_TextureHandle texture_handle = platform->render_entries[i].mesh.texture_handle;
+        SDL_GPUTextureSamplerBinding samplers[4];
+        for (int t = 0; t < 4; ++t) {
+            int texture_index = 0;
 
-        int texture_index = 0;
+            if (platform->render_entries[i].mesh.texture_handles[t] > 0) {
+                texture_index = (int) platform->render_entries[i].mesh.texture_handles[t] - 1;
+            } else if (t > 0 && platform->render_entries[i].mesh.texture_handles[0] > 0) {
+                texture_index = (int) platform->render_entries[i].mesh.texture_handles[0] - 1;
+            }
 
-        if (texture_handle > 0 && texture_handle <= texture_count) {
-            texture_index = (int) texture_handle - 1;
+            samplers[t].texture = textures[texture_index];
+            samplers[t].sampler = render->sampler;
         }
 
-        SDL_BindGPUFragmentSamplers(render_pass, 0, &(SDL_GPUTextureSamplerBinding){
-                                        .texture = textures[texture_index],
-                                        .sampler = render->sampler,
-                                    }, 1);
+        SDL_BindGPUFragmentSamplers(render_pass, 0, samplers, 4);
 
         const Mat4X4 projection = platform->render_entries[i].mesh.screen_space ? orthographic : view_projection;
         Mat4X4 mvp = Matrix_Multiply(projection, platform->render_entries[i].mesh.transform);
@@ -516,9 +528,9 @@ int main(void) {
         });
 
     SDL_GPUSampler *texture_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
-                                                               .min_filter = SDL_GPU_FILTER_LINEAR,
-                                                               .mag_filter = SDL_GPU_FILTER_LINEAR,
-                                                               .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+                                                               .min_filter = SDL_GPU_FILTER_NEAREST,
+                                                               .mag_filter = SDL_GPU_FILTER_NEAREST,
+                                                               .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
                                                                .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
                                                                .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
                                                                .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
@@ -802,6 +814,8 @@ int main(void) {
         platform.delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
         last_counter = current_counter;
 
+        platform.elapsed_time += platform.delta_time;
+
         frame_time_accumulator += platform.delta_time;
         frame_count++;
 
@@ -1040,7 +1054,7 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            FlushRenderEntries(&render, &platform, command_buffer, render_pass);;
+            FlushRenderEntries(&render, &platform, command_buffer, render_pass);
 
             if (text_draw_call_count > 0) {
                 SDL_BindGPUGraphicsPipeline(render_pass, text_pipeline);

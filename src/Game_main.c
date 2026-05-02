@@ -152,8 +152,11 @@ typedef struct {
     Bool active;
     EntityType type;
 
+    double angular_velocity;
+
+    Game_TextureHandle texture_handles[4];
     Mesh mesh;
-    Vec3 position;
+    Vec3d position;
     Vec3 scale;
     Vec3 dim;
 } Entity;
@@ -195,8 +198,8 @@ typedef enum {
 typedef struct {
     Mode mode;
 
-    Vec3 position;
-    Vec3 velocity;
+    Vec3d position;
+    Vec3d velocity;
 
     float pitch, yaw;
     Bool grounded;
@@ -238,15 +241,18 @@ void UpdateAndRender(Game_Platform *platform) {
         state->sine = 0.0f;
 #endif
 
-        Entity *entity = AddEntity(state);
-        entity->type = ENTITY_MESH;
-        entity->position = Vector3(0.0f, 0.0f, 0.0f);
-        entity->dim = Vector3(3.0f, 3.0f, 3.0f);
-        entity->scale = Vector3(20000.0f, 20000.0f, 20000.0f);
-        entity->mesh = LoadOBJ(platform, "sphere.obj");
+        Entity *earth = AddEntity(state);
+        earth->type = ENTITY_MESH;
+        earth->position = Vector3d(0.0, -6371000.0, 0.0);
+        earth->dim = Vector3(1.0f, 1.0f, 1.0f);
+        earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
+        earth->angular_velocity = (2.0 * PI) / 86400.0;
+        earth->mesh = LoadOBJ(platform, "sphere.obj");
+        earth->texture_handles[0] = platform->LoadImageFile("earth.jpg");
+        earth->texture_handles[1] = platform->LoadImageFile("earth_clouds.jpg");
 
-        state->position = Vector3(0, 20001.5f, 5.0f);
-        state->velocity = Vector3(0, 0, 0);
+        state->position = Vector3d(0.0, 1.5, 0.0);
+        state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
         state->grounded = False;
@@ -318,7 +324,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, 1, 0);
 
-            const float speed = 100000.0f * platform->delta_time;
+            const float speed = 10000000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 
@@ -343,19 +349,14 @@ void UpdateAndRender(Game_Platform *platform) {
 
             if (direction.x != 0.0f || direction.y != 0.0f || direction.z != 0.0f) {
                 direction = Vec3_Normalize(direction);
-                state->position = Vec3_Add(state->position, Vec3_Scale(direction, speed));
+                state->position = Vec3d_Add(state->position, Vec3d_Scale(Vec3_Cast64(direction), speed));
             }
 
-            const Vec3 target = Vec3_Add(state->position, forward);
             platform->view_projection = Matrix_Multiply(
-                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 50000.0f),
-                Matrix_LookAt(state->position, target, Vector3(0, 1, 0)));
+                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 1000000000.0f),
+                Matrix_LookAt(Vector3(0, 0, 0), forward, Vector3(0, 1, 0))
+            );
 
-            Game_PushTextRenderEntry(platform, state->debug_font, platform->width / 2, platform->height / 2, "+");
-            // Game_PushSprite(platform, TEXTURE_HANDLE_MAGIC_PIXEL,
-            //                 platform->width / 2.0f - 2.0f,
-            //                 platform->height / 2.0f - 2.0f,
-            //                 4.0f, 4.0f, GREEN);
             Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
                                       "%.1fms", platform->frame_time_ms);
             Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 50.0f,
@@ -370,9 +371,22 @@ void UpdateAndRender(Game_Platform *platform) {
         if (entity->active && entity->type == ENTITY_MESH) {
             const Mesh mesh = entity->mesh;
 
+            const Vec3d relative_position = Vec3d_Sub(entity->position, state->position);
+            const Vec3 render_position = Vec3d_Cast32(relative_position);
+
+            const float rotation_angle = (float) (platform->elapsed_time * entity->angular_velocity);
+
+            const Mat4X4 transform = Matrix_Multiply(
+                Matrix_Translation(render_position),
+                Matrix_Multiply(
+                    Matrix_RotationY(rotation_angle),
+                    Matrix_Scale(entity->scale)
+                )
+            );
+
             Game_PushMeshRenderEntry(
-                platform, Matrix_Multiply(Matrix_Translation(entity->position), Matrix_Scale(entity->scale)),
-                TEXTURE_HANDLE_MAGIC_PIXEL, mesh.vertices, mesh.vertex_count, mesh.indices, mesh.index_count,
+                platform, transform,
+                entity->texture_handles, mesh.vertices, mesh.vertex_count, mesh.indices, mesh.index_count,
                 PUSH_MESH_REGULAR);
         }
     }
