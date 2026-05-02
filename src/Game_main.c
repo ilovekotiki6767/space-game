@@ -15,7 +15,7 @@ typedef struct {
     int index_count;
 } Mesh;
 
-static Mesh LoadOBJ(const Game_Platform *platform, MemoryArena *perm_arena, MemoryArena *temp_arena, const char *path) {
+static Mesh LoadOBJ(Game_Platform *platform, const char *path) {
     Mesh result = {0};
 
     const Game_FileResult file = platform->ReadEntireFile(path);
@@ -39,16 +39,16 @@ static Mesh LoadOBJ(const Game_Platform *platform, MemoryArena *perm_arena, Memo
         return result;
     }
 
-    const unsigned long long temp_memory_mark = temp_arena->used;
+    const unsigned long long temp_memory_mark = platform->transient_memory.used;
 
-    Vec3 *temp_v = PushArray(temp_arena, v_count + 1, Vec3);
-    Vec2 *temp_vt = PushArray(temp_arena, vt_count + 1, Vec2);
-    Vec3 *temp_vn = PushArray(temp_arena, vn_count + 1, Vec3);
+    Vec3 *temp_v = PushArray(&platform->transient_memory, v_count + 1, Vec3);
+    Vec2 *temp_vt = PushArray(&platform->transient_memory, vt_count + 1, Vec2);
+    Vec3 *temp_vn = PushArray(&platform->transient_memory, vn_count + 1, Vec3);
 
     result.vertex_count = f_count * 3;
     result.index_count = f_count * 3;
-    result.vertices = PushArray(perm_arena, result.vertex_count, Vertex);
-    result.indices = PushArray(perm_arena, result.index_count, unsigned short);
+    result.vertices = PushArray(&platform->permanent_memory, result.vertex_count, Vertex);
+    result.indices = PushArray(&platform->permanent_memory, result.index_count, unsigned short);
 
     if (!temp_v || !temp_vt || !temp_vn || !result.vertices || !result.indices) {
         platform->FreeFileMemory(file.contents);
@@ -138,7 +138,7 @@ static Mesh LoadOBJ(const Game_Platform *platform, MemoryArena *perm_arena, Memo
     }
 
     platform->FreeFileMemory(file.contents);
-    temp_arena->used = temp_memory_mark;
+    platform->transient_memory.used = temp_memory_mark;
 
     return result;
 }
@@ -240,7 +240,7 @@ void UpdateAndRender(Game_Platform *platform) {
         entity->type = ENTITY_MESH;
         entity->position = Vector3(0.0f, 0.0f, 0.0f);
         entity->dim = Vector3(3.0f, 3.0f, 3.0f);
-        entity->mesh = LoadOBJ(platform, &platform->permanent_memory, &platform->transient_memory, "model.obj");
+        entity->mesh = LoadOBJ(platform, "model.obj");
 
         state->position = Vector3(0, 1.5f, 5.0f);
         state->velocity = Vector3(0, 0, 0);
