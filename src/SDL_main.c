@@ -660,23 +660,26 @@ int main(void) {
     Render render = {0};
     InitializeRender(&render, mesh_pipeline, mesh_vertex_buffer, mesh_index_buffer, 36, texture_sampler);
 
+    textures[TEXTURE_HANDLE_MAGIC_PIXEL] = CreateMagicPixel();
+    texture_count = 1; // index 0 is now reserved
+
     int permanent_storage_size = Megabytes(64);
     void *permanent_storage = SDL_malloc(permanent_storage_size);
     SDL_memset(permanent_storage, 0, permanent_storage_size);
 
-    textures[TEXTURE_HANDLE_MAGIC_PIXEL] = CreateMagicPixel();
-    texture_count = 1; // index 0 is now reserved
+    int transient_storage_size = Megabytes(256);
+    void *transient_storage = SDL_malloc(transient_storage_size);
+    SDL_memset(transient_storage, 0, transient_storage_size);
 
     Game_Platform platform = {
-        .permanent_storage = permanent_storage,
-        .permanent_storage_size = permanent_storage_size,
-
         .LoadImageFile = Platform_LoadImageFile,
         .LoadFontFile = Platform_LoadFontFile,
-
         .ReadEntireFile = Platform_ReadEntireFile,
         .FreeFileMemory = Platform_FreeFileMemory,
     };
+
+    InitializeArena(&platform.permanent_memory, permanent_storage, permanent_storage_size);
+    InitializeArena(&platform.transient_memory, transient_storage, transient_storage_size);
 
     GameCode game_code = LoadGameCode(GAME_LIB_PATH);
 
@@ -712,6 +715,8 @@ int main(void) {
 
     bool running = true;
     while (running) {
+        platform.transient_memory.used = 0;
+
         for (int i = 0; i < GAME_KEY_COUNT; ++i) {
             platform.input[i].half_transition_count = 0;
         }

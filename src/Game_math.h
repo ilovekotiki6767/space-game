@@ -127,6 +127,11 @@ static Vec4 Vector4(const float x, const float y, const float z, const float w) 
 #define BLUE Vector4(0.0f, 0.0f, 1.0f, 1.0f)
 #define GRAY Vector4(0.5f, 0.5f, 0.5f, 1.0f)
 
+typedef struct {
+    float x;
+    float y;
+} Vec2;
+
 /**
  * The matrix is stored in column major format
  **/

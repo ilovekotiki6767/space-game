@@ -6,6 +6,7 @@ static int StringLength(const char *s) {
 
     while (*s) {
         len++;
+        s++;
     }
 
     return len;
@@ -26,8 +27,8 @@ static char *WriteFloat(char *destination, const char *end, double value, const 
     }
     value += round_add;
 
-    unsigned int int_part = (unsigned int)value;
-    double fraction = value - (double)int_part;
+    unsigned int int_part = (unsigned int) value;
+    double fraction = value - (double) int_part;
 
     char buffer[16];
     int i = 0;
@@ -53,7 +54,7 @@ static char *WriteFloat(char *destination, const char *end, double value, const 
 
         for (int d = 0; d < precision; d++) {
             fraction *= 10.0;
-            const int digit = (int)fraction;
+            const int digit = (int) fraction;
 
             if (destination < end) {
                 *destination++ = '0' + digit;
@@ -63,6 +64,63 @@ static char *WriteFloat(char *destination, const char *end, double value, const 
     }
 
     return destination;
+}
+
+static int IsDigit(const char c) {
+    return (c >= '0' && c <= '9');
+}
+
+static void EatSpaces(char **at) {
+    while (**at == ' ' || **at == '\t' || **at == '\r') {
+        (*at)++;
+    }
+}
+
+static void SkipLine(char **at) {
+    while (**at && **at != '\n') {
+        (*at)++;
+    }
+    if (**at == '\n') {
+        (*at)++;
+    }
+}
+
+static int ParseInt(char **at) {
+    int sign = 1;
+    if (**at == '-') {
+        sign = -1;
+        (*at)++;
+    }
+
+    int result = 0;
+    while (IsDigit(**at)) {
+        result = result * 10 + (**at - '0');
+        (*at)++;
+    }
+    return result * sign;
+}
+
+static float ParseFloat(char **at) {
+    float sign = 1.0f;
+    if (**at == '-') {
+        sign = -1.0f;
+        (*at)++;
+    }
+
+    float result = (float) ParseInt(at);
+
+    if (**at == '.') {
+        (*at)++;
+        float frac = 0.0f;
+        float div = 1.0f;
+        while (IsDigit(**at)) {
+            frac = frac * 10.0f + (**at - '0');
+            div *= 10.0f;
+            (*at)++;
+        }
+        result += frac / div;
+    }
+    return result * sign;
 }
 
 #endif //GAMING_GAME_STRING_H

@@ -27,6 +27,43 @@ typedef unsigned int Game_FontHandle;
 // Structures
 
 typedef struct {
+    unsigned char *base;
+    unsigned long long size;
+    unsigned long long used;
+} MemoryArena;
+
+static void InitializeArena(MemoryArena *arena, void *base, const unsigned long long size) {
+    arena->base = (unsigned char*)base;
+    arena->size = size;
+    arena->used = 0;
+}
+
+#define PushStruct(arena, type) (type *)PushSize(arena, sizeof(type))
+#define PushArray(arena, count, type) (type *)PushSize(arena, (count) * sizeof(type))
+
+static void *PushSize(MemoryArena *arena, const unsigned long long size) {
+    unsigned long long padding = 0;
+    if (arena->used & 7) {
+        padding = 8 - (arena->used & 7);
+    }
+
+    if (arena->used + padding + size <= arena->size) {
+        arena->used += padding;
+        void *result = arena->base + arena->used;
+        arena->used += size;
+
+        unsigned char *byte = (unsigned char*)result;
+        for (unsigned long long i = 0; i < size; ++i) {
+            byte[i] = 0;
+        }
+
+        return result;
+    }
+
+    return 0;
+}
+
+typedef struct {
     unsigned int contents_size;
     void *contents;
 } Game_FileResult;
@@ -86,8 +123,8 @@ typedef enum {
 } Game_Key;
 
 typedef struct {
-    void *permanent_storage;
-    unsigned long long permanent_storage_size;
+    MemoryArena permanent_memory;
+    MemoryArena transient_memory;
 
     Game_SoundBuffer sound_buffer;
 
