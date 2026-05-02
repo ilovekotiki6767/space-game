@@ -39,7 +39,7 @@ static Mesh LoadOBJ(Game_Platform *platform, const char *path) {
         return result;
     }
 
-    const unsigned long long temp_memory_mark = platform->transient_memory.used;
+    const TemporaryMemory temporary_memory = BeginTemporaryMemory(&platform->transient_memory);
 
     Vec3 *temp_v = PushArray(&platform->transient_memory, v_count + 1, Vec3);
     Vec2 *temp_vt = PushArray(&platform->transient_memory, vt_count + 1, Vec2);
@@ -138,7 +138,7 @@ static Mesh LoadOBJ(Game_Platform *platform, const char *path) {
     }
 
     platform->FreeFileMemory(file.contents);
-    platform->transient_memory.used = temp_memory_mark;
+    EndTemporaryMemory(temporary_memory);
 
     return result;
 }

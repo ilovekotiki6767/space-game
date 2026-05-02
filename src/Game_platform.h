@@ -30,7 +30,29 @@ typedef struct {
     unsigned char *base;
     unsigned long long size;
     unsigned long long used;
+    /// how many nested temporary scopes are active
+    int temp_count;
 } MemoryArena;
+
+typedef struct {
+    MemoryArena *arena;
+    unsigned long long mark;
+} TemporaryMemory;
+
+static TemporaryMemory BeginTemporaryMemory(MemoryArena *arena) {
+    const TemporaryMemory temporary_memory = {
+        .arena = arena,
+        .mark = arena->used,
+    };
+    arena->temp_count++;
+
+    return temporary_memory;
+}
+
+static void EndTemporaryMemory(TemporaryMemory temporary_memory) {
+    temporary_memory.arena->used = temporary_memory.mark;
+    temporary_memory.arena->temp_count--;
+}
 
 static void InitializeArena(MemoryArena *arena, void *base, const unsigned long long size) {
     arena->base = (unsigned char*)base;
@@ -52,7 +74,7 @@ static void *PushSize(MemoryArena *arena, const unsigned long long size) {
         void *result = arena->base + arena->used;
         arena->used += size;
 
-        unsigned char *byte = (unsigned char*)result;
+        unsigned char *byte = result;
         for (unsigned long long i = 0; i < size; ++i) {
             byte[i] = 0;
         }
