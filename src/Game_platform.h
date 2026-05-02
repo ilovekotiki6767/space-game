@@ -235,7 +235,7 @@ static void Game_PushSprite(Game_Platform *platform, const Game_TextureHandle te
     const unsigned short indices[] = {0, 2, 1, 0, 3, 2};
 
     Game_PushMeshRenderEntry(
-        platform, Matrix_Translation(0, 0, 0),
+        platform, Matrix_Translation(Vector3(0, 0, 0)),
         texture_handle, vertices, 4, indices, 6, PUSH_MESH_SCREEN_SPACE);
 }
 

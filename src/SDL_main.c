@@ -288,10 +288,10 @@ static PipelineBuilder BeginPipeline(void) {
 
     b.depth_stencil.enable_depth_test = true;
     b.depth_stencil.enable_depth_write = true;
-    b.depth_stencil.compare_op = SDL_GPU_COMPAREOP_LESS;
+    b.depth_stencil.compare_op = SDL_GPU_COMPAREOP_GREATER;
 
     b.has_depth_target = true;
-    b.depth_format = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
+    b.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
 
     b.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
     b.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
@@ -561,7 +561,7 @@ int main(void) {
     PipelineBuilder mesh_pipeline_builder = BeginPipeline();
     PipelineSetShaders(&mesh_pipeline_builder, mesh_vertex_shader, mesh_fragment_shader);
     PipelineSetVertexInput(&mesh_pipeline_builder, &mesh_vertex_buffer_description, 1, mesh_vertex_attributes, 4);
-    PipelineSetTargetFormat(&mesh_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D16_UNORM);
+    PipelineSetTargetFormat(&mesh_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
 
     SDL_GPUGraphicsPipeline *mesh_pipeline = EndPipeline(&mesh_pipeline_builder);
     if (!mesh_pipeline) {
@@ -616,7 +616,7 @@ int main(void) {
                               .enable_depth_write = false,
                               .compare_op = SDL_GPU_COMPAREOP_ALWAYS,
                           });
-    PipelineSetTargetFormat(&text_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D16_UNORM);
+    PipelineSetTargetFormat(&text_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
 
     SDL_GPUGraphicsPipeline *text_pipeline = EndPipeline(&text_pipeline_builder);
     if (!text_pipeline) {
@@ -821,7 +821,7 @@ int main(void) {
 
             depth_texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
                                                      .type = SDL_GPU_TEXTURETYPE_2D,
-                                                     .format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+                                                     .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
                                                      .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
                                                      .width = width,
                                                      .height = height,
@@ -905,7 +905,7 @@ int main(void) {
                                 draw_call->atlas = sequence->atlas_texture;
 
                                 float px = entry->text.x, py = entry->text.y;
-                                Mat4X4 translation = Matrix_Translation(px, py, 0.0f);
+                                Mat4X4 translation = Matrix_Translation(Vector3(px, py, 0.0f));
 
                                 draw_call->mvp = Matrix_Multiply(orthographic, translation);
                                 draw_call->index_offset = text_index_count;
@@ -1030,7 +1030,7 @@ int main(void) {
 
             SDL_GPUDepthStencilTargetInfo depth_stencil_target_info = {
                 .texture = depth_texture,
-                .clear_depth = 1.0f,
+                .clear_depth = 0.0f,
                 .load_op = SDL_GPU_LOADOP_CLEAR,
                 .store_op = SDL_GPU_STOREOP_DONT_CARE,
                 .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
