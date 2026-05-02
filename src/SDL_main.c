@@ -415,6 +415,43 @@ static Game_FontHandle Platform_LoadFontFile(const char *path, const float size)
     return handle;
 }
 
+static void Platform_FreeFileMemory(void *memory) {
+    if (memory) {
+        SDL_free(memory);
+    }
+}
+
+static Game_FileResult Platform_ReadEntireFile(const char *path) {
+    Game_FileResult result = {0};
+
+    SDL_IOStream *io = SDL_IOFromFile(path, "rb");
+    if (io) {
+        const Sint64 size = SDL_GetIOSize(io);
+
+        if (size > 0) {
+            // allocate +1 for a null terminator just in case it is used
+            result.contents = SDL_malloc((size_t) size + 1);
+
+            if (result.contents) {
+                const size_t bytes_read = SDL_ReadIO(io, result.contents, (size_t) size);
+
+                if (bytes_read == (size_t) size) {
+                    result.contents_size = (unsigned int) size;
+                    ((char *) result.contents)[size] = '\0';
+                } else {
+                    Platform_FreeFileMemory(result.contents);
+
+                    result.contents = NULL;
+                    result.contents_size = 0;
+                }
+            }
+            SDL_CloseIO(io);
+        }
+    }
+
+    return result;
+}
+
 int main(void) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("%s", SDL_GetError());
@@ -636,6 +673,9 @@ int main(void) {
 
         .LoadImageFile = Platform_LoadImageFile,
         .LoadFontFile = Platform_LoadFontFile,
+
+        .ReadEntireFile = Platform_ReadEntireFile,
+        .FreeFileMemory = Platform_FreeFileMemory,
     };
 
     GameCode game_code = LoadGameCode(GAME_LIB_PATH);
@@ -810,7 +850,7 @@ int main(void) {
         platform.sound_buffer.sample_count = 0;
 
         if (audio_stream) {
-            int target_queue_bytes = (int)(audio_spec.freq * audio_spec.channels * sizeof(short)) / 15;
+            int target_queue_bytes = (int) (audio_spec.freq * audio_spec.channels * sizeof(short)) / 15;
             int queued_bytes = SDL_GetAudioStreamQueued(audio_stream);
             int bytes_to_write = target_queue_bytes - queued_bytes;
 
@@ -819,7 +859,7 @@ int main(void) {
                 bytes_to_write = 0;
             }
 
-            int sample_count_to_write = bytes_to_write / (audio_spec.channels * (int)sizeof(short));
+            int sample_count_to_write = bytes_to_write / (audio_spec.channels * (int) sizeof(short));
             platform.sound_buffer.sample_count = sample_count_to_write;
         }
 
@@ -828,7 +868,7 @@ int main(void) {
         }
 
         if (audio_stream && platform.sound_buffer.sample_count > 0) {
-            int bytes_written = platform.sound_buffer.sample_count * audio_spec.channels * (int)sizeof(short);
+            int bytes_written = platform.sound_buffer.sample_count * audio_spec.channels * (int) sizeof(short);
             SDL_PutAudioStreamData(audio_stream, platform.sound_buffer.samples, bytes_written);
         }
 

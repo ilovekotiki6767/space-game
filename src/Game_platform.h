@@ -26,6 +26,11 @@ typedef unsigned int Game_FontHandle;
 
 // Structures
 
+typedef struct {
+    unsigned int contents_size;
+    void *contents;
+} Game_FileResult;
+
 typedef enum {
     GAME_RENDER_ENTRY_MESH,
     GAME_RENDER_ENTRY_TEXT,
@@ -117,6 +122,10 @@ typedef struct {
     Game_TextureHandle (*LoadImageFile)(const char *path);
 
     Game_FontHandle (*LoadFontFile)(const char *path, float size);
+
+    Game_FileResult (*ReadEntireFile)(const char *path);
+
+    void (*FreeFileMemory)(void *memory);
 } Game_Platform;
 
 enum {
