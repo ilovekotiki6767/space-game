@@ -237,20 +237,6 @@ static Mat4X4 Matrix_Scale(const Vec3 v) {
     );
 }
 
-static Mat4X4 SDL_MatrixRotationY(const float angle)
-{
-    const float cos = Cos(angle);
-    const float sin = Sin(angle);
-
-    return Matrix4X4(
-         cos,  0,  sin,  0,
-           0,  1,    0,  0,
-        -sin,  0,  cos,  0,
-           0,  0,    0,  1
-    );
-}
-
-
 typedef struct {
     float x, y, z;
     float nx, ny, nz;
