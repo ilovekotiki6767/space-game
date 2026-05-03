@@ -312,7 +312,22 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->texture_handles[0] = platform->LoadImageFile("assets/images/neptune.jpg");
 #endif
 
-        state->position = Vector3d(0.0, 54364001.5, 0.0);
+#if 0
+        Entity *uranus = AddEntity(state);
+        uranus->type = ENTITY_MESH;
+        uranus->position = Vector3d(0.0, 0.0, 0.0);
+        uranus->dim = Vector3(1.0f, 1.0f, 1.0f);
+        uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
+        uranus->angular_velocity = (2.0 * PI) / 62064.0;
+        uranus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        uranus->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                           "assets/shaders/planet.frag.spv",
+                                                           GAME_CULL_MODE_BACK,
+                                                           GAME_BLEND_MODE_OPAQUE);
+        uranus->texture_handles[0] = platform->LoadImageFile("assets/images/uranus.jpg");
+#endif
+
+        state->position = Vector3d(0.0, 25362001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
