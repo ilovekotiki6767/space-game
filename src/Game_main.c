@@ -281,6 +281,7 @@ void UpdateAndRender(Game_Platform *platform) {
         rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
 #endif
 
+#if 0
         Entity *jupiter = AddEntity(state);
         jupiter->type = ENTITY_MESH;
         jupiter->position = Vector3d(0.0, 0.0, 0.0);
@@ -293,6 +294,23 @@ void UpdateAndRender(Game_Platform *platform) {
                                                             GAME_CULL_MODE_BACK,
                                                             GAME_BLEND_MODE_OPAQUE);
         jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
+#endif
+
+
+#if 0
+        Entity *neptune = AddEntity(state);
+        neptune->type = ENTITY_MESH;
+        neptune->position = Vector3d(0.0, 0.0, 0.0);
+        neptune->dim = Vector3(1.0f, 1.0f, 1.0f);
+        neptune->scale = Vector3(24622000.0f, 24622000.0f, 24622000.0f);
+        neptune->angular_velocity = (2.0 * PI) / 57996.0;
+        neptune->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        neptune->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                            "assets/shaders/planet.frag.spv",
+                                                            GAME_CULL_MODE_BACK,
+                                                            GAME_BLEND_MODE_OPAQUE);
+        neptune->texture_handles[0] = platform->LoadImageFile("assets/images/neptune.jpg");
+#endif
 
         state->position = Vector3d(0.0, 54364001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
@@ -433,9 +451,8 @@ void UpdateAndRender(Game_Platform *platform) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
 
-                entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
-                entry->mesh.fragment_uniforms[1] = (float) (platform->elapsed_time * entity->angular_velocity);
-                entry->mesh.fragment_uniform_count = 2;
+                entry->mesh.fragment_uniforms[0] = (float) (platform->elapsed_time * entity->angular_velocity);
+                entry->mesh.fragment_uniform_count = 1;
 
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
