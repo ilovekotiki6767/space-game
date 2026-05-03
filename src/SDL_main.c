@@ -220,6 +220,13 @@ static void FlushRenderEntries(const Game_Platform *platform, SDL_GPUCommandBuff
 
                     Mat4X4 mvp = Matrix_Multiply(platform->view_projection, mesh->transform);
                     SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
+
+                    if (mesh->fragment_uniform_count > 0) {
+                        SDL_PushGPUFragmentUniformData(command_buffer, 0,
+                                                       mesh->fragment_uniforms,
+                                                       (Uint32) (mesh->fragment_uniform_count * sizeof(float)));
+                    }
+
                     SDL_DrawGPUIndexedPrimitives(render_pass, mesh->index_count, 1, mesh->index_offset,
                                                  mesh->vertex_offset, 0);
                 }
