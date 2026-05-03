@@ -713,6 +713,7 @@ int main(void) {
 
     int max_audio_samples = audio_spec.freq * audio_spec.channels;
     short *audio_backing_buffer = SDL_malloc(max_audio_samples * sizeof(short));
+    SDL_memset(audio_backing_buffer, 0, max_audio_samples * sizeof(short));
 
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
