@@ -26,6 +26,10 @@ add_dependencies(Platform Game)
 set(SHADER_SOURCES
         assets/shaders/earth.frag
         assets/shaders/earth.vert
+        assets/shaders/planet.frag
+        assets/shaders/planet.vert
+        assets/shaders/rings.frag
+        assets/shaders/rings.vert
 )
 
 set(SHADER_OUTPUTS "")

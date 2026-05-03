@@ -239,6 +239,7 @@ void UpdateAndRender(Game_Platform *platform) {
         state->sine = 0.0f;
 #endif
 
+#if 0
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_MESH;
         earth->position = Vector3d(0.0, 6371000.0, 0.0);
@@ -252,8 +253,32 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
         earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
         earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
+#endif
+        Entity *saturn = AddEntity(state);
+        saturn->type = ENTITY_MESH;
+        saturn->position = Vector3d(0.0, 0.0, 0.0);
+        saturn->dim = Vector3(1.0f, 1.0f, 1.0f);
+        saturn->scale = Vector3(60268000.0f, 54364000.0f, 60268000.0f);
+        saturn->angular_velocity = (2.0 * PI) / 38520.0;
+        saturn->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        saturn->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                           "assets/shaders/planet.frag.spv", GAME_CULL_MODE_BACK,
+                                                           GAME_BLEND_MODE_OPAQUE);
+        saturn->texture_handles[0] = platform->LoadImageFile("assets/images/saturn.jpg");
 
-        state->position = Vector3d(0.0, 1.5, 0.0);
+        Entity *rings = AddEntity(state);
+        rings->type = ENTITY_MESH;
+        rings->position = saturn->position;
+        rings->dim = Vector3(1.0f, 1.0f, 1.0f);
+        rings->scale = Vector3(60268000.0f, 60268000.0f, 60268000.0f);
+        rings->angular_velocity = saturn->angular_velocity;
+        rings->mesh = LoadOBJ(platform, "assets/models/rings.obj");
+        rings->pipeline_handle = platform->CreatePipeline("assets/shaders/rings.vert.spv",
+                                                          "assets/shaders/rings.frag.spv", GAME_CULL_MODE_NONE,
+                                                          GAME_BLEND_MODE_ALPHA);
+        rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
+
+        state->position = Vector3d(0.0, 54364001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
@@ -326,7 +351,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, -1, 0);
 
-            const float speed = 10000000.0f * platform->delta_time;
+            const float speed = 5000000000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 
@@ -355,7 +380,7 @@ void UpdateAndRender(Game_Platform *platform) {
             }
 
             platform->view_projection = Matrix_Multiply(
-                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 1000000000.0f),
+                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 1000000000000.0f),
                 Matrix_LookAt(Vector3(0, 0, 0), forward, Vector3(0, 1, 0))
             );
         }
@@ -392,13 +417,18 @@ void UpdateAndRender(Game_Platform *platform) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
 
+                entry->mesh.fragment_uniforms[0] = (float) (platform->elapsed_time * entity->angular_velocity);
+                entry->mesh.fragment_uniform_count = 1;
+
+#if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
                 entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
                 entry->mesh.fragment_uniforms[1] = d.x;
                 entry->mesh.fragment_uniforms[2] = d.y;
                 entry->mesh.fragment_uniforms[3] = d.z;
-                entry->mesh.fragment_uniforms[4] = (float)(platform->elapsed_time * entity->angular_velocity);
+                entry->mesh.fragment_uniforms[4] = (float) (platform->elapsed_time * entity->angular_velocity);
                 entry->mesh.fragment_uniform_count = 5;
+#endif
             }
         }
     }

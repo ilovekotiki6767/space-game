@@ -156,6 +156,16 @@ typedef enum {
     GAME_KEY_COUNT,
 } Game_Key;
 
+typedef enum {
+    GAME_CULL_MODE_BACK,
+    GAME_CULL_MODE_NONE,
+} Game_CullMode;
+
+typedef enum {
+    GAME_BLEND_MODE_OPAQUE,
+    GAME_BLEND_MODE_ALPHA,
+} Game_BlendMode;
+
 typedef struct {
     MemoryArena permanent_memory;
     MemoryArena transient_memory;
@@ -193,7 +203,8 @@ typedef struct {
     // Platform API
     Game_TextureHandle (*LoadImageFile)(const char *path);
 
-    Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path);
+    Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path,
+                                          Game_CullMode cull_mode, Game_BlendMode blend_mode);
 
     Game_TextureHandle (*CreateRenderTarget)(Vec2 size);
 

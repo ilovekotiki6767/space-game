@@ -394,6 +394,10 @@ static void PipelineSetTargetFormat(PipelineBuilder *b, const SDL_GPUTextureForm
     b->depth_format = depth_format;
 }
 
+static void PipelineSetCullMode(PipelineBuilder *b, const SDL_GPUCullMode cull_mode) {
+    b->rasterizer.cull_mode = cull_mode;
+}
+
 static SDL_GPUGraphicsPipeline *EndPipeline(const PipelineBuilder *b) {
     SDL_GPUColorTargetDescription color_target_description = {
         .format = b->color_format,
@@ -489,7 +493,8 @@ static Game_FileResult Platform_ReadEntireFile(const char *path) {
     return result;
 }
 
-static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path, const char *fragment_spirv_path) {
+static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path, const char *fragment_spirv_path,
+                                                   const Game_CullMode cull_mode, const Game_BlendMode blend_mode) {
     if (pipeline_count >= ArrayCount(pipelines)) {
         return 0;
     }
@@ -503,7 +508,14 @@ static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path
 
     PipelineBuilder builder = BeginPipeline();
     PipelineSetShaders(&builder, vertex_shader, fragment_shader);
+    PipelineSetCullMode(&builder, cull_mode == GAME_CULL_MODE_BACK ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE);
     PipelineSetVertexInput(&builder, &vertex_buffer_description, 1, vertex_attributes, 4);
+    if (blend_mode == GAME_BLEND_MODE_ALPHA) {
+        builder.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+        builder.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        builder.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        builder.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    }
     // TODO: check for support
     PipelineSetTargetFormat(&builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
 
