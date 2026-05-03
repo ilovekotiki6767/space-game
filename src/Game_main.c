@@ -254,6 +254,8 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
         earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
 #endif
+
+#if 0
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_MESH;
         saturn->position = Vector3d(0.0, 0.0, 0.0);
@@ -277,6 +279,20 @@ void UpdateAndRender(Game_Platform *platform) {
                                                           "assets/shaders/rings.frag.spv", GAME_CULL_MODE_NONE,
                                                           GAME_BLEND_MODE_ALPHA);
         rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
+#endif
+
+        Entity *jupiter = AddEntity(state);
+        jupiter->type = ENTITY_MESH;
+        jupiter->position = Vector3d(0.0, 0.0, 0.0);
+        jupiter->dim = Vector3(1.0f, 1.0f, 1.0f);
+        jupiter->scale = Vector3(71492000.0f, 66854000.0f, 71492000.0f);
+        jupiter->angular_velocity = (2.0 * PI) / 35730.0;
+        jupiter->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        jupiter->pipeline_handle = platform->CreatePipeline("assets/shaders/jupiter.vert.spv",
+                                                            "assets/shaders/jupiter.frag.spv",
+                                                            GAME_CULL_MODE_BACK,
+                                                            GAME_BLEND_MODE_OPAQUE);
+        jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
 
         state->position = Vector3d(0.0, 54364001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
@@ -351,7 +367,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, -1, 0);
 
-            const float speed = 5000000000.0f * platform->delta_time;
+            const float speed = 50000000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 
@@ -417,8 +433,9 @@ void UpdateAndRender(Game_Platform *platform) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
 
-                entry->mesh.fragment_uniforms[0] = (float) (platform->elapsed_time * entity->angular_velocity);
-                entry->mesh.fragment_uniform_count = 1;
+                entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
+                entry->mesh.fragment_uniforms[1] = (float) (platform->elapsed_time * entity->angular_velocity);
+                entry->mesh.fragment_uniform_count = 2;
 
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
