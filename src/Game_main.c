@@ -342,6 +342,7 @@ void UpdateAndRender(Game_Platform *platform) {
         mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
 #endif
 
+#if 0
         Entity *mercury = AddEntity(state);
         mercury->type = ENTITY_MESH;
         mercury->position = Vector3d(0.0, 0.0, 0.0);
@@ -354,6 +355,23 @@ void UpdateAndRender(Game_Platform *platform) {
                                                             GAME_CULL_MODE_BACK,
                                                             GAME_BLEND_MODE_OPAQUE);
         mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
+#endif
+
+#if 0
+        Entity *venus = AddEntity(state);
+        venus->type = ENTITY_MESH;
+        venus->position = Vector3d(0.0, 0.0, 0.0);
+        venus->dim = Vector3(1.0f, 1.0f, 1.0f);
+        venus->scale = Vector3(6051800.0f, 6051800.0f, 6051800.0f);
+        venus->angular_velocity = (2.0 * PI) / 20997000.0;
+        venus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        venus->pipeline_handle = platform->CreatePipeline("assets/shaders/venus.vert.spv",
+                                                          "assets/shaders/venus.frag.spv",
+                                                          GAME_CULL_MODE_BACK,
+                                                          GAME_BLEND_MODE_OPAQUE);
+        venus->texture_handles[0] = platform->LoadImageFile("assets/images/venus.jpg");
+        venus->texture_handles[1] = platform->LoadImageFile("assets/images/venus_atmosphere.jpg");
+#endif
 
         state->position = Vector3d(0.0, 25362001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);

@@ -32,6 +32,8 @@ set(SHADER_SOURCES
         assets/shaders/rings.vert
         assets/shaders/jupiter.frag
         assets/shaders/jupiter.vert
+        assets/shaders/venus.frag
+        assets/shaders/venus.vert
 )
 
 set(SHADER_OUTPUTS "")
