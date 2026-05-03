@@ -211,7 +211,6 @@ typedef struct {
     Entity entities[256];
     int entity_count;
 
-    Game_FontHandle debug_font;
     Bool initialized;
 } State;
 
@@ -234,8 +233,6 @@ void UpdateAndRender(Game_Platform *platform) {
     State *state = (State *) platform->permanent_memory.base;
 
     if (!state->initialized) {
-        state->debug_font = platform->LoadFontFile("jetbrains_mono.ttf", 24.0f);
-
         state->mode = MODE_PLAYING;
 #if 0
         state->sine = 0.0f;
@@ -356,11 +353,6 @@ void UpdateAndRender(Game_Platform *platform) {
                 Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 1000000000.0f),
                 Matrix_LookAt(Vector3(0, 0, 0), forward, Vector3(0, 1, 0))
             );
-
-            Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 10.0f,
-                                      "%.1fms", platform->frame_time_ms);
-            Game_PushTextRenderEntryF(platform, state->debug_font, 10.0f, 50.0f,
-                                      "%.1f, %.1f, %.1f", state->position.x, state->position.y, state->position.z);
         }
         break;
     }
@@ -384,10 +376,16 @@ void UpdateAndRender(Game_Platform *platform) {
                 )
             );
 
-            Game_PushMeshRenderEntry(
-                platform, transform,
-                entity->texture_handles, mesh.vertices, mesh.vertex_count, mesh.indices, mesh.index_count,
-                PUSH_MESH_REGULAR);
+            Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, mesh.vertices, mesh.vertex_count, mesh.indices,
+                                                               mesh.index_count);
+            if (entry) {
+                entry->mesh.transform = transform;
+
+                for (int j = 0; j < 4; ++j) {
+                    entry->mesh.texture_handles[j] = entity->texture_handles[j];
+                }
+
+            }
         }
     }
 }

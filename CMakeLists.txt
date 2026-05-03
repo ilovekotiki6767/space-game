@@ -24,10 +24,8 @@ target_include_directories(Platform PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_dependencies(Platform Game)
 
 set(SHADER_SOURCES
-        shaders/basic.vert
-        shaders/basic.frag
-        shaders/text.vert
-        shaders/text.frag
+    shaders/earth.frag
+    shaders/earth.vert
 )
 
 set(SHADER_OUTPUTS "")
