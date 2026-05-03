@@ -2,6 +2,7 @@
 #define GAMING_GAME_PLATFORM_H
 
 #include "Game_math.h"
+#include "Game_math64.h"
 #include "Game_string.h"
 // one of the C headers that are available without standard library
 #include <stdarg.h>
@@ -23,6 +24,7 @@
 
 typedef unsigned int Game_TextureHandle;
 typedef unsigned int Game_FontHandle;
+typedef unsigned int Game_PipelineHandle;
 
 // Structures
 
@@ -49,13 +51,13 @@ static TemporaryMemory BeginTemporaryMemory(MemoryArena *arena) {
     return temporary_memory;
 }
 
-static void EndTemporaryMemory(TemporaryMemory temporary_memory) {
+static void EndTemporaryMemory(const TemporaryMemory temporary_memory) {
     temporary_memory.arena->used = temporary_memory.mark;
     temporary_memory.arena->temp_count--;
 }
 
 static void InitializeArena(MemoryArena *arena, void *base, const unsigned long long size) {
-    arena->base = (unsigned char*)base;
+    arena->base = (unsigned char *) base;
     arena->size = size;
     arena->used = 0;
 }
@@ -99,16 +101,20 @@ typedef struct {
     Game_RenderEntryType type;
 
     union {
-        struct {
+        struct Game_RenderEntry_Mesh {
             Mat4X4 transform;
-            Game_TextureHandle texture_handle;
+            Game_TextureHandle texture_handles[4];
+            Game_PipelineHandle pipeline_handle;
+            float vertex_uniforms[32];
+            int vertex_uniform_count;
+            float fragment_uniforms[32];
+            int fragment_uniform_count;
             int index_offset;
             int index_count;
             int vertex_offset;
-            Bool screen_space;
         } mesh;
 
-        struct {
+        struct Game_RenderEntry_Text {
             Game_FontHandle font_handle;
             float x, y;
             char text[256];
@@ -164,6 +170,7 @@ typedef struct {
     float delta_time;
     /// updated every half a second
     float frame_time_ms;
+    double elapsed_time;
 
     Bool fullscreen;
 
@@ -180,36 +187,27 @@ typedef struct {
     // Platform API
     Game_TextureHandle (*LoadImageFile)(const char *path);
 
-    Game_FontHandle (*LoadFontFile)(const char *path, float size);
+    Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path);
 
     Game_FileResult (*ReadEntireFile)(const char *path);
 
     void (*FreeFileMemory)(void *memory);
 } Game_Platform;
 
-enum {
-    PUSH_MESH_REGULAR = 0,
-    PUSH_MESH_SCREEN_SPACE = 1,
-};
-
 // Functions
 
-static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 transform,
-                                     const Game_TextureHandle texture_handle,
-                                     const Vertex *vertices, const int vertex_count,
-                                     const unsigned short *indices, const int index_count, const Bool screen_space) {
+static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const Vertex *vertices,
+                                                  const int vertex_count, const unsigned short *indices,
+                                                  const int index_count) {
     if (platform->render_entry_count < ArrayCount(platform->render_entries) &&
         platform->transient_vertex_count + vertex_count <= ArrayCount(platform->transient_vertices) &&
         platform->transient_index_count + index_count <= ArrayCount(platform->transient_indices)) {
         Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
 
         entry->type = GAME_RENDER_ENTRY_MESH;
-        entry->mesh.transform = transform;
-        entry->mesh.texture_handle = texture_handle;
         entry->mesh.vertex_offset = platform->transient_vertex_count;
         entry->mesh.index_offset = platform->transient_index_count;
         entry->mesh.index_count = index_count;
-        entry->mesh.screen_space = screen_space;
 
         for (int i = 0; i < vertex_count; ++i) {
             platform->transient_vertices[platform->transient_vertex_count++] = vertices[i];
@@ -218,108 +216,11 @@ static void Game_PushMeshRenderEntry(Game_Platform *platform, const Mat4X4 trans
         for (int i = 0; i < index_count; ++i) {
             platform->transient_indices[platform->transient_index_count++] = indices[i];
         }
+
+        return entry;
     }
-}
 
-static void Game_PushSprite(Game_Platform *platform, const Game_TextureHandle texture_handle,
-                            const float x, const float y, const float w, const float h, const Vec4 color) {
-    const float r = color.x, g = color.y, b = color.z, a = color.w;
-
-    const Vertex vertices[] = {
-        {x, y, 0, 0, 0, 1, r, g, b, a, 0, 0},
-        {x + w, y, 0, 0, 0, 1, r, g, b, a, 1, 0},
-        {x + w, y + h, 0, 0, 0, 1, r, g, b, a, 1, 1},
-        {x, y + h, 0, 0, 0, 1, r, g, b, a, 0, 1}
-    };
-
-    const unsigned short indices[] = {0, 2, 1, 0, 3, 2};
-
-    Game_PushMeshRenderEntry(
-        platform, Matrix_Translation(0, 0, 0),
-        texture_handle, vertices, 4, indices, 6, PUSH_MESH_SCREEN_SPACE);
-}
-
-static void Game_PushTextRenderEntry(Game_Platform *platform, const Game_FontHandle font_handle, const float x,
-                                     const float y, const char *text) {
-    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
-        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
-
-        entry->type = GAME_RENDER_ENTRY_TEXT;
-        entry->text.font_handle = font_handle;
-        entry->text.x = x;
-        entry->text.y = y;
-
-        char *destination = entry->text.text;
-        const char *end = destination + ArrayCount(entry->text.text) - 1;
-
-        while (*text && destination < end) {
-            *destination++ = *text++;
-        }
-
-        *destination = '\0';
-    }
-}
-
-static void Game_PushTextRenderEntryF(Game_Platform *platform, const Game_FontHandle font_handle,
-                                      const float x, const float y, const char *fmt, ...) {
-    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
-        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
-
-        entry->type = GAME_RENDER_ENTRY_TEXT;
-        entry->text.font_handle = font_handle;
-        entry->text.x = x;
-        entry->text.y = y;
-
-        va_list args;
-        va_start(args, fmt);
-
-        char *destination = entry->text.text;
-        const char *end = destination + ArrayCount(entry->text.text) - 1;
-
-        while (*fmt && destination < end) {
-            if (*fmt != '%') {
-                *destination++ = *fmt++;
-                continue;
-            }
-
-            fmt++;
-
-            int precision = 6;
-            if (*fmt == '.') {
-                fmt++;
-                precision = 0;
-
-                while (*fmt >= '0' && *fmt <= '9') {
-                    precision = precision * 10 + (*fmt - '0');
-                    fmt++;
-                }
-            }
-
-            if (*fmt == 'f') {
-                const double value = va_arg(args, double);
-
-                destination = WriteFloat(destination, end, value, precision);
-                fmt++;
-            } else if (*fmt == '%') {
-                if (destination < end) {
-                    *destination++ = '%';
-                }
-
-                fmt++;
-            } else {
-                if (destination < end) {
-                    *destination++ = '%';
-                }
-
-                if (*fmt && destination < end) {
-                    *destination++ = *fmt++;
-                }
-            }
-        }
-
-        *destination = '\0';
-        va_end(args);
-    }
+    return 0;
 }
 
 typedef void (*Game_UpdateAndRender_Func)(Game_Platform *platform);

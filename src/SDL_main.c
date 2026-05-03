@@ -3,7 +3,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
-#include <SDL3_ttf/SDL_ttf.h>
 
 #include "Game_math.h"
 #include "Game_platform.h"
@@ -16,25 +15,24 @@
 #define GAME_LIB_PATH "./game.so"
 #endif
 
-typedef struct {
-    SDL_GPUTexture *atlas;
-    Mat4X4 mvp;
-    int index_offset;
-    int index_count;
-} TextDrawCall;
+/// standard vertex buffer description for the Vertex structure (see `Game_math.h`)
+static SDL_GPUVertexBufferDescription vertex_buffer_description;
+/// standard vertex attributes for the Vertex structure (see `Game_math.h.`)
+static SDL_GPUVertexAttribute vertex_attributes[4];
+static SDL_GPUTextureFormat swapchain_texture_format;
+
+static SDL_GPUSampler *texture_sampler;
+
+static SDL_GPUBuffer *vertex_buffer;
+static SDL_GPUBuffer *index_buffer;
 
 static SDL_GPUDevice *device;
 
 static SDL_GPUTexture *textures[256];
 static int texture_count;
 
-static TTF_Font *fonts[16];
-static int font_count;
-
-static float text_vertices[16384 * 4];
-static int text_indices[32768];
-
-static TextDrawCall text_draw_calls[256];
+static SDL_GPUGraphicsPipeline *pipelines[64];
+static int pipeline_count;
 
 typedef struct {
     void *handle;
@@ -179,41 +177,18 @@ static SDL_GPUTexture *CreateMagicPixel(void) {
     return texture;
 }
 
-typedef struct {
-    SDL_GPUGraphicsPipeline *pipeline;
-    SDL_GPUBuffer *vertex_buffer;
-    SDL_GPUBuffer *index_buffer;
-    int index_count;
-    SDL_GPUSampler *sampler;
-} Render;
 
-static void InitializeRender(Render *render, SDL_GPUGraphicsPipeline *pipeline, SDL_GPUBuffer *vertex_buffer,
-                             SDL_GPUBuffer *index_buffer, const int index_count, SDL_GPUSampler *sampler) {
-    render->pipeline = pipeline;
-    render->vertex_buffer = vertex_buffer;
-    render->index_buffer = index_buffer;
-    render->index_count = index_count;
-    render->sampler = sampler;
-}
-
-static void FlushRenderEntries(const Render *render, const Game_Platform *platform,
-                               SDL_GPUCommandBuffer *command_buffer,
+static void FlushRenderEntries(const Game_Platform *platform, SDL_GPUCommandBuffer *command_buffer,
                                SDL_GPURenderPass *render_pass) {
     if (platform->render_entry_count == 0) {
         return;
     }
 
-    const Mat4X4 view_projection = platform->view_projection;
-    const Mat4X4 orthographic = Matrix_OrthographicScreen(platform->width, platform->height);
-
-    SDL_BindGPUGraphicsPipeline(render_pass, render->pipeline);
     SDL_BindGPUVertexBuffers(render_pass, 0, &(SDL_GPUBufferBinding){
-                                 .buffer = render->vertex_buffer,
-                                 .offset = 0,
+                                 .buffer = vertex_buffer, .offset = 0,
                              }, 1);
     SDL_BindGPUIndexBuffer(render_pass, &(SDL_GPUBufferBinding){
-                               .buffer = render->index_buffer,
-                               .offset = 0,
+                               .buffer = index_buffer, .offset = 0,
                            }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
     for (int i = 0; i < platform->render_entry_count; ++i) {
@@ -221,27 +196,44 @@ static void FlushRenderEntries(const Render *render, const Game_Platform *platfo
             continue;
         }
 
-        const Game_TextureHandle texture_handle = platform->render_entries[i].mesh.texture_handle;
+        const struct Game_RenderEntry_Mesh mesh = platform->render_entries[i].mesh;
 
-        int texture_index = 0;
-
-        if (texture_handle > 0 && texture_handle <= texture_count) {
-            texture_index = (int) texture_handle - 1;
+        if (mesh.pipeline_handle == 0 || mesh.pipeline_handle > pipeline_count) {
+            continue;
         }
 
-        SDL_BindGPUFragmentSamplers(render_pass, 0, &(SDL_GPUTextureSamplerBinding){
-                                        .texture = textures[texture_index],
-                                        .sampler = render->sampler,
-                                    }, 1);
+        SDL_GPUGraphicsPipeline *pipeline = pipelines[mesh.pipeline_handle - 1];
+        SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
-        const Mat4X4 projection = platform->render_entries[i].mesh.screen_space ? orthographic : view_projection;
-        Mat4X4 mvp = Matrix_Multiply(projection, platform->render_entries[i].mesh.transform);
+        SDL_GPUTextureSamplerBinding samplers[4];
+        for (int t = 0; t < 4; ++t) {
+            int texture_index = 0;
+
+            if (mesh.texture_handles[t] > 0) {
+                texture_index = (int) mesh.texture_handles[t] - 1;
+            } else if (t > 0 && mesh.texture_handles[0] > 0) {
+                texture_index = (int) mesh.texture_handles[0] - 1;
+            }
+
+            samplers[t].texture = textures[texture_index];
+            samplers[t].sampler = texture_sampler;
+        }
+
+        SDL_BindGPUFragmentSamplers(render_pass, 0, samplers, 4);
+
+        if (mesh.vertex_uniform_count > 0) {
+            SDL_PushGPUVertexUniformData(command_buffer, 1, mesh.vertex_uniforms,
+                                         mesh.vertex_uniform_count * sizeof(float));
+        }
+        if (mesh.fragment_uniform_count > 0) {
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, mesh.fragment_uniforms,
+                                           mesh.fragment_uniform_count * sizeof(float));
+        }
+
+        Mat4X4 mvp = Matrix_Multiply(platform->view_projection, mesh.transform);
 
         SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
-        SDL_DrawGPUIndexedPrimitives(render_pass,
-                                     platform->render_entries[i].mesh.index_count, 1,
-                                     platform->render_entries[i].mesh.index_offset,
-                                     platform->render_entries[i].mesh.vertex_offset, 0);
+        SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, mesh.index_offset, mesh.vertex_offset, 0);
     }
 }
 
@@ -288,10 +280,10 @@ static PipelineBuilder BeginPipeline(void) {
 
     b.depth_stencil.enable_depth_test = true;
     b.depth_stencil.enable_depth_write = true;
-    b.depth_stencil.compare_op = SDL_GPU_COMPAREOP_LESS;
+    b.depth_stencil.compare_op = SDL_GPU_COMPAREOP_GREATER;
 
     b.has_depth_target = true;
-    b.depth_format = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
+    b.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
 
     b.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
     b.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
@@ -318,18 +310,6 @@ static void PipelineSetVertexInput(PipelineBuilder *b,
     b->vertex_input.num_vertex_buffers = num_vertex_buffers;
     b->vertex_input.vertex_attributes = vertex_attributes;
     b->vertex_input.num_vertex_attributes = num_vertex_attributes;
-}
-
-static void PipelineSetCullMode(PipelineBuilder *b, const SDL_GPUCullMode mode) {
-    b->rasterizer.cull_mode = mode;
-}
-
-static void PipelineSetBlendState(PipelineBuilder *b, const SDL_GPUColorTargetBlendState blend) {
-    b->blend_state = blend;
-}
-
-static void PipelineSetDepthState(PipelineBuilder *b, const SDL_GPUDepthStencilState depth) {
-    b->depth_stencil = depth;
 }
 
 static void PipelineSetTargetFormat(PipelineBuilder *b, const SDL_GPUTextureFormat color_format,
@@ -396,25 +376,6 @@ static Game_TextureHandle Platform_LoadImageFile(const char *path) {
     return handle;
 }
 
-static Game_FontHandle Platform_LoadFontFile(const char *path, const float size) {
-    if (font_count >= ArrayCount(fonts)) {
-        return 0;
-    }
-
-    TTF_Font *font = TTF_OpenFont(path, size);
-    if (!font) {
-        SDL_Log("%s", SDL_GetError());
-
-        return 0;
-    }
-
-    const Game_FontHandle handle = font_count + 1;
-    fonts[font_count] = font;
-    font_count++;
-
-    return handle;
-}
-
 static void Platform_FreeFileMemory(void *memory) {
     if (memory) {
         SDL_free(memory);
@@ -452,6 +413,37 @@ static Game_FileResult Platform_ReadEntireFile(const char *path) {
     return result;
 }
 
+static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path, const char *fragment_spirv_path) {
+    if (pipeline_count >= ArrayCount(pipelines)) {
+        return 0;
+    }
+
+    SDL_GPUShader *vertex_shader = CreateGPUShader(vertex_spirv_path, SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
+    SDL_GPUShader *fragment_shader = CreateGPUShader(fragment_spirv_path, SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
+
+    if (!vertex_shader || !fragment_shader) {
+        return 0;
+    }
+
+    PipelineBuilder builder = BeginPipeline();
+    PipelineSetShaders(&builder, vertex_shader, fragment_shader);
+    PipelineSetVertexInput(&builder, &vertex_buffer_description, 1, vertex_attributes, 4);
+    // TODO: check for support
+    PipelineSetTargetFormat(&builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
+
+    SDL_GPUGraphicsPipeline *pipeline = EndPipeline(&builder);
+    SDL_ReleaseGPUShader(device, vertex_shader);
+    SDL_ReleaseGPUShader(device, fragment_shader);
+
+    if (!pipeline) {
+        return 0;
+    }
+
+    pipelines[pipeline_count] = pipeline;
+    // 1 based
+    return ++pipeline_count;
+}
+
 int main(void) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("%s", SDL_GetError());
@@ -460,12 +452,6 @@ int main(void) {
     }
 
     if (!SDL_ShaderCross_Init()) {
-        SDL_Log("%s", SDL_GetError());
-
-        return 1;
-    }
-
-    if (!TTF_Init()) {
         SDL_Log("%s", SDL_GetError());
 
         return 1;
@@ -489,176 +475,66 @@ int main(void) {
         return 1;
     }
 
-    SDL_GPUShader *mesh_vertex_shader = CreateGPUShader("shaders/basic.vert.spv", SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
-    SDL_GPUShader *mesh_fragment_shader = CreateGPUShader("shaders/basic.frag.spv",
-                                                          SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
+    vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
+                                                           .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                                           .size = Megabytes(1),
+                                                       });
 
-    if (!mesh_vertex_shader || !mesh_fragment_shader) {
-        return 1;
-        // errors were already logged by CreateGPUShader
-    }
+    index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
+                                                          .usage = SDL_GPU_BUFFERUSAGE_INDEX,
+                                                          .size = Megabytes(1),
+                                                      });
 
-    SDL_GPUBuffer *mesh_vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
-                                                                .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                                                .size = Megabytes(1),
-                                                            });
-
-    SDL_GPUBuffer *mesh_index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
-                                                               .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-                                                               .size = Megabytes(1),
-                                                           });
-
-    SDL_GPUTransferBuffer *mesh_transfer_buffer = SDL_CreateGPUTransferBuffer(
+    SDL_GPUTransferBuffer *transfer_buffer = SDL_CreateGPUTransferBuffer(
         device, &(SDL_GPUTransferBufferCreateInfo){
             .usage =
             SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
             .size = Megabytes(1) + Megabytes(1),
         });
 
-    SDL_GPUSampler *texture_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
-                                                               .min_filter = SDL_GPU_FILTER_LINEAR,
-                                                               .mag_filter = SDL_GPU_FILTER_LINEAR,
-                                                               .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-                                                               .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-                                                               .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-                                                               .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-                                                           });
+    texture_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
+                                               .min_filter = SDL_GPU_FILTER_NEAREST,
+                                               .mag_filter = SDL_GPU_FILTER_NEAREST,
+                                               .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+                                               .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                               .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                               .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+                                           });
 
-    SDL_GPUTextureFormat swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(device, window);
+    swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(device, window);
 
-    SDL_GPUVertexBufferDescription mesh_vertex_buffer_description = {
+    vertex_buffer_description = (SDL_GPUVertexBufferDescription){
         .slot = 0,
         .pitch = sizeof(Vertex),
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
     };
 
-    SDL_GPUVertexAttribute mesh_vertex_attributes[4] = {0};
-    mesh_vertex_attributes[0] = (SDL_GPUVertexAttribute){
+    SDL_memset(&vertex_attributes, 0, sizeof(vertex_attributes));
+
+    vertex_attributes[0] = (SDL_GPUVertexAttribute){
         .location = 0,
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
         .offset = 0, // x, y, z
     };
-    mesh_vertex_attributes[1] = (SDL_GPUVertexAttribute){
+    vertex_attributes[1] = (SDL_GPUVertexAttribute){
         .location = 1,
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
         .offset = sizeof(float) * 3, // nx, ny, nz
     };
-    mesh_vertex_attributes[2] = (SDL_GPUVertexAttribute){
+    vertex_attributes[2] = (SDL_GPUVertexAttribute){
         .location = 2,
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
         .offset = sizeof(float) * 6, // r, g, b, a
     };
-    mesh_vertex_attributes[3] = (SDL_GPUVertexAttribute){
+    vertex_attributes[3] = (SDL_GPUVertexAttribute){
         .location = 3,
         .buffer_slot = 0,
         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
         .offset = sizeof(float) * 10, // u, v
     };
-
-    PipelineBuilder mesh_pipeline_builder = BeginPipeline();
-    PipelineSetShaders(&mesh_pipeline_builder, mesh_vertex_shader, mesh_fragment_shader);
-    PipelineSetVertexInput(&mesh_pipeline_builder, &mesh_vertex_buffer_description, 1, mesh_vertex_attributes, 4);
-    PipelineSetTargetFormat(&mesh_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D16_UNORM);
-
-    SDL_GPUGraphicsPipeline *mesh_pipeline = EndPipeline(&mesh_pipeline_builder);
-    if (!mesh_pipeline) {
-        return 1;
-    }
-
-    SDL_ReleaseGPUShader(device, mesh_vertex_shader);
-    SDL_ReleaseGPUShader(device, mesh_fragment_shader);
-
-    SDL_GPUShader *text_vertex_shader = CreateGPUShader("shaders/text.vert.spv", SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
-    SDL_GPUShader *text_fragment_shader =
-            CreateGPUShader("shaders/text.frag.spv", SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
-
-    SDL_GPUVertexBufferDescription text_vertex_buffer_description = {
-        .slot = 0,
-        .pitch = sizeof(float) * 4,
-        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-    };
-
-    SDL_GPUVertexAttribute text_vertex_attributes[2];
-    text_vertex_attributes[0] = (SDL_GPUVertexAttribute){
-        .location = 0,
-        .buffer_slot = 0,
-        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-        .offset = 0,
-    };
-    text_vertex_attributes[1] = (SDL_GPUVertexAttribute){
-        .location = 1,
-        .buffer_slot = 0,
-        .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-        .offset = sizeof(float) * 2,
-    };
-
-    SDL_GPUColorTargetBlendState text_blend_state = {
-        .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-        .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-        .color_blend_op = SDL_GPU_BLENDOP_ADD,
-        .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-        .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-        .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
-        .color_write_mask = 0xF,
-        .enable_blend = true,
-    };
-
-    PipelineBuilder text_pipeline_builder = BeginPipeline();
-    PipelineSetShaders(&text_pipeline_builder, text_vertex_shader, text_fragment_shader);
-    PipelineSetVertexInput(&text_pipeline_builder, &text_vertex_buffer_description, 1, text_vertex_attributes, 2);
-    PipelineSetCullMode(&text_pipeline_builder, SDL_GPU_CULLMODE_NONE);
-    PipelineSetBlendState(&text_pipeline_builder, text_blend_state);
-    PipelineSetDepthState(&text_pipeline_builder, (SDL_GPUDepthStencilState){
-                              .enable_depth_test = false,
-                              .enable_depth_write = false,
-                              .compare_op = SDL_GPU_COMPAREOP_ALWAYS,
-                          });
-    PipelineSetTargetFormat(&text_pipeline_builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D16_UNORM);
-
-    SDL_GPUGraphicsPipeline *text_pipeline = EndPipeline(&text_pipeline_builder);
-    if (!text_pipeline) {
-        return 1;
-    }
-
-    SDL_ReleaseGPUShader(device, text_vertex_shader);
-    SDL_ReleaseGPUShader(device, text_fragment_shader);
-
-    SDL_GPUBuffer *text_vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
-                                                                .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                                                .size = Megabytes(1),
-                                                            });
-    SDL_GPUBuffer *text_index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
-                                                               .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-                                                               .size = Megabytes(1),
-                                                           });
-    SDL_GPUTransferBuffer *text_transfer_buffer = SDL_CreateGPUTransferBuffer(
-        device, &(SDL_GPUTransferBufferCreateInfo){
-            .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-            .size = Megabytes(1) + Megabytes(1)
-        });
-
-    SDL_GPUSampler *text_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
-                                                            .min_filter = SDL_GPU_FILTER_LINEAR,
-                                                            .mag_filter = SDL_GPU_FILTER_LINEAR,
-                                                            .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-                                                            .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-                                                            .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-                                                            .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-                                                        });
-
-    TTF_TextEngine *text_engine = TTF_CreateGPUTextEngine(device);
-    if (!text_engine) {
-        SDL_Log("%s", SDL_GetError());
-
-        return 1;
-    }
-    TTF_SetGPUTextEngineWinding(text_engine, TTF_GPU_TEXTENGINE_WINDING_CLOCKWISE);
-
-    Render render = {0};
-    InitializeRender(&render, mesh_pipeline, mesh_vertex_buffer, mesh_index_buffer, 36, texture_sampler);
 
     textures[TEXTURE_HANDLE_MAGIC_PIXEL] = CreateMagicPixel();
     texture_count = 1; // index 0 is now reserved
@@ -673,9 +549,9 @@ int main(void) {
 
     Game_Platform platform = {
         .LoadImageFile = Platform_LoadImageFile,
-        .LoadFontFile = Platform_LoadFontFile,
         .ReadEntireFile = Platform_ReadEntireFile,
         .FreeFileMemory = Platform_FreeFileMemory,
+        .CreatePipeline = Platform_CreatePipeline,
     };
 
     InitializeArena(&platform.permanent_memory, permanent_storage, permanent_storage_size);
@@ -701,6 +577,7 @@ int main(void) {
 
     int max_audio_samples = audio_spec.freq * audio_spec.channels;
     short *audio_backing_buffer = SDL_malloc(max_audio_samples * sizeof(short));
+    SDL_memset(audio_backing_buffer, 0, max_audio_samples * sizeof(short));
 
     SDL_GPUTexture *depth_texture = NULL;
     int depth_texture_width = 0, depth_texture_height = 0;
@@ -802,6 +679,8 @@ int main(void) {
         platform.delta_time = (float) (current_counter - last_counter) / (float) performance_frequency;
         last_counter = current_counter;
 
+        platform.elapsed_time += platform.delta_time;
+
         frame_time_accumulator += platform.delta_time;
         frame_count++;
 
@@ -821,7 +700,7 @@ int main(void) {
 
             depth_texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
                                                      .type = SDL_GPU_TEXTURETYPE_2D,
-                                                     .format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+                                                     .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
                                                      .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
                                                      .width = width,
                                                      .height = height,
@@ -880,67 +759,6 @@ int main(void) {
         SDL_SetWindowRelativeMouseMode(window, platform.mouse_locked);
         SDL_SetWindowFullscreen(window, platform.fullscreen);
 
-        int text_vertex_count = 0;
-        int text_index_count = 0;
-        int text_draw_call_count = 0;
-
-        Mat4X4 orthographic = Matrix_OrthographicScreen((float) width, (float) height);
-
-        for (int i = 0; i < platform.render_entry_count; ++i) {
-            Game_RenderEntry *entry = &platform.render_entries[i];
-
-            if (entry->type == GAME_RENDER_ENTRY_TEXT) {
-                if (entry->text.font_handle > 0 && entry->text.font_handle <= font_count) {
-                    TTF_Font *font = fonts[entry->text.font_handle - 1];
-                    TTF_Text *text = TTF_CreateText(text_engine, font, entry->text.text, 0);
-
-                    if (text) {
-                        int w, h;
-                        TTF_GetTextSize(text, &w, &h);
-
-                        TTF_GPUAtlasDrawSequence *sequence = TTF_GetGPUTextDrawData(text);
-                        while (sequence) {
-                            if (text_draw_call_count < ArrayCount(text_draw_calls)) {
-                                TextDrawCall *draw_call = &text_draw_calls[text_draw_call_count];
-                                draw_call->atlas = sequence->atlas_texture;
-
-                                float px = entry->text.x, py = entry->text.y;
-                                Mat4X4 translation = Matrix_Translation(px, py, 0.0f);
-
-                                draw_call->mvp = Matrix_Multiply(orthographic, translation);
-                                draw_call->index_offset = text_index_count;
-                                draw_call->index_count = 0;
-
-                                int vertex_base = text_vertex_count;
-                                for (int vertex = 0; vertex < sequence->num_vertices; ++vertex) {
-                                    if (text_vertex_count < ArrayCount(text_vertices) / 4) {
-                                        text_vertices[text_vertex_count * 4 + 0] = sequence->xy[vertex].x;
-                                        text_vertices[text_vertex_count * 4 + 1] = -sequence->xy[vertex].y;
-                                        text_vertices[text_vertex_count * 4 + 2] = sequence->uv[vertex].x;
-                                        text_vertices[text_vertex_count * 4 + 3] = sequence->uv[vertex].y;
-                                        text_vertex_count++;
-                                    }
-                                }
-
-                                for (int index = 0; index < sequence->num_indices; ++index) {
-                                    if (text_index_count < ArrayCount(text_indices)) {
-                                        text_indices[text_index_count++] = sequence->indices[index] + vertex_base;
-                                    }
-                                }
-
-                                draw_call->index_count = sequence->num_indices;
-
-                                text_draw_call_count++;
-                            }
-
-                            sequence = sequence->next;
-                        }
-                        TTF_DestroyText(text);
-                    }
-                }
-            }
-        }
-
         int current_transient_vertex_count = platform.transient_vertex_count;
         int current_transient_index_count = platform.transient_index_count;
         platform.transient_vertex_count = 0;
@@ -954,61 +772,32 @@ int main(void) {
         }
 
         if (current_transient_vertex_count > 0 && current_transient_index_count > 0) {
-            size_t mesh_vertex_buffer_size = current_transient_vertex_count * sizeof(Vertex);
-            size_t mesh_index_buffer_size = current_transient_index_count * sizeof(Uint16);
+            size_t vertex_buffer_size = current_transient_vertex_count * sizeof(Vertex);
+            size_t index_buffer_size = current_transient_index_count * sizeof(Uint16);
 
-            Uint8 *mesh_data = SDL_MapGPUTransferBuffer(device, mesh_transfer_buffer, false);
-            SDL_memcpy(mesh_data, platform.transient_vertices, mesh_vertex_buffer_size);
-            SDL_memcpy(mesh_data + mesh_vertex_buffer_size, platform.transient_indices, mesh_index_buffer_size);
-            SDL_UnmapGPUTransferBuffer(device, mesh_transfer_buffer);
+            Uint8 *dest = SDL_MapGPUTransferBuffer(device, transfer_buffer, false);
+            SDL_memcpy(dest, platform.transient_vertices, vertex_buffer_size);
+            SDL_memcpy(dest + vertex_buffer_size, platform.transient_indices, index_buffer_size);
+            SDL_UnmapGPUTransferBuffer(device, transfer_buffer);
 
-            SDL_GPUCopyPass *mesh_copy_pass = SDL_BeginGPUCopyPass(command_buffer);
-            SDL_UploadToGPUBuffer(mesh_copy_pass, &(SDL_GPUTransferBufferLocation){
-                                      .transfer_buffer = mesh_transfer_buffer,
+            SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+            SDL_UploadToGPUBuffer(copy_pass, &(SDL_GPUTransferBufferLocation){
+                                      .transfer_buffer = transfer_buffer,
                                       .offset = 0
                                   }, &(SDL_GPUBufferRegion){
-                                      .buffer = mesh_vertex_buffer,
+                                      .buffer = vertex_buffer,
                                       .offset = 0,
-                                      .size = mesh_vertex_buffer_size
+                                      .size = vertex_buffer_size
                                   }, true);
-            SDL_UploadToGPUBuffer(mesh_copy_pass, &(SDL_GPUTransferBufferLocation){
-                                      .transfer_buffer = mesh_transfer_buffer,
-                                      .offset = (Uint32) mesh_vertex_buffer_size
+            SDL_UploadToGPUBuffer(copy_pass, &(SDL_GPUTransferBufferLocation){
+                                      .transfer_buffer = transfer_buffer,
+                                      .offset = (Uint32) vertex_buffer_size
                                   }, &(SDL_GPUBufferRegion){
-                                      .buffer = mesh_index_buffer,
+                                      .buffer = index_buffer,
                                       .offset = 0,
-                                      .size = mesh_index_buffer_size,
+                                      .size = index_buffer_size,
                                   }, true);
-            SDL_EndGPUCopyPass(mesh_copy_pass);
-        }
-
-        if (text_draw_call_count > 0) {
-            size_t text_vertex_buffer_size = text_vertex_count * 4 * sizeof(float);
-            size_t text_index_buffer_size = text_index_count * 4 * sizeof(int);
-
-            Uint8 *text_data = SDL_MapGPUTransferBuffer(device, text_transfer_buffer, false);
-            SDL_memcpy(text_data, text_vertices, text_vertex_buffer_size);
-            SDL_memcpy(text_data + text_vertex_buffer_size, text_indices, text_index_buffer_size);
-            SDL_UnmapGPUTransferBuffer(device, text_transfer_buffer);
-
-            SDL_GPUCopyPass *text_copy_pass = SDL_BeginGPUCopyPass(command_buffer);
-            SDL_UploadToGPUBuffer(text_copy_pass, &(SDL_GPUTransferBufferLocation){
-                                      .transfer_buffer = text_transfer_buffer,
-                                      .offset = 0
-                                  }, &(SDL_GPUBufferRegion){
-                                      .buffer = text_vertex_buffer,
-                                      .offset = 0,
-                                      .size = text_vertex_buffer_size
-                                  }, true);
-            SDL_UploadToGPUBuffer(text_copy_pass, &(SDL_GPUTransferBufferLocation){
-                                      .transfer_buffer = text_transfer_buffer,
-                                      .offset = text_vertex_buffer_size
-                                  }, &(SDL_GPUBufferRegion){
-                                      .buffer = text_index_buffer,
-                                      .offset = 0,
-                                      .size = text_index_buffer_size,
-                                  }, true);
-            SDL_EndGPUCopyPass(text_copy_pass);
+            SDL_EndGPUCopyPass(copy_pass);
         }
 
         SDL_GPUTexture *swapchain_texture;
@@ -1030,7 +819,7 @@ int main(void) {
 
             SDL_GPUDepthStencilTargetInfo depth_stencil_target_info = {
                 .texture = depth_texture,
-                .clear_depth = 1.0f,
+                .clear_depth = 0.0f,
                 .load_op = SDL_GPU_LOADOP_CLEAR,
                 .store_op = SDL_GPU_STOREOP_DONT_CARE,
                 .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
@@ -1040,31 +829,7 @@ int main(void) {
             SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
                                                                     &depth_stencil_target_info);
 
-            FlushRenderEntries(&render, &platform, command_buffer, render_pass);;
-
-            if (text_draw_call_count > 0) {
-                SDL_BindGPUGraphicsPipeline(render_pass, text_pipeline);
-                SDL_BindGPUVertexBuffers(render_pass, 0, &(SDL_GPUBufferBinding){
-                                             .buffer = text_vertex_buffer,
-                                             .offset = 0
-                                         }, 1);
-                SDL_BindGPUIndexBuffer(render_pass, &(SDL_GPUBufferBinding){
-                                           .buffer = text_index_buffer,
-                                           .offset = 0
-                                       }, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-                for (int i = 0; i < text_draw_call_count; ++i) {
-                    TextDrawCall *draw_call = &text_draw_calls[i];
-
-                    SDL_BindGPUFragmentSamplers(render_pass, 0, &(SDL_GPUTextureSamplerBinding){
-                                                    .texture = draw_call->atlas,
-                                                    .sampler = text_sampler,
-                                                }, 1);
-
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &draw_call->mvp, sizeof(Mat4X4));
-                    SDL_DrawGPUIndexedPrimitives(render_pass, draw_call->index_count, 1, draw_call->index_offset, 0, 0);
-                }
-            }
+            FlushRenderEntries(&platform, command_buffer, render_pass);
 
             SDL_EndGPURenderPass(render_pass);
         }
@@ -1073,6 +838,7 @@ int main(void) {
     }
 
     SDL_free(permanent_storage);
+    SDL_free(transient_storage);
     if (depth_texture) {
         SDL_ReleaseGPUTexture(device, depth_texture);
     }
@@ -1082,28 +848,18 @@ int main(void) {
     for (int i = 0; i < texture_count; ++i) {
         SDL_ReleaseGPUTexture(device, textures[i]);
     }
-    for (int i = 0; i < font_count; ++i) {
-        TTF_CloseFont(fonts[i]);
-    }
     if (texture_sampler) {
         SDL_ReleaseGPUSampler(device, texture_sampler);
     }
-    if (text_sampler) {
-        SDL_ReleaseGPUSampler(device, text_sampler);
+    for (int i = 0; i < pipeline_count; ++i) {
+        SDL_ReleaseGPUGraphicsPipeline(device, pipelines[i]);
     }
-    SDL_ReleaseGPUGraphicsPipeline(device, text_pipeline);
-    SDL_ReleaseGPUGraphicsPipeline(device, mesh_pipeline);
-    SDL_ReleaseGPUBuffer(device, text_vertex_buffer);
-    SDL_ReleaseGPUBuffer(device, text_index_buffer);;
-    SDL_ReleaseGPUBuffer(device, mesh_vertex_buffer);
-    SDL_ReleaseGPUBuffer(device, mesh_index_buffer);
-    SDL_ReleaseGPUTransferBuffer(device, text_transfer_buffer);
-    SDL_ReleaseGPUTransferBuffer(device, mesh_transfer_buffer);
-    TTF_DestroyGPUTextEngine(text_engine);
+    SDL_ReleaseGPUBuffer(device, vertex_buffer);
+    SDL_ReleaseGPUBuffer(device, index_buffer);
+    SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
     SDL_ReleaseWindowFromGPUDevice(device, window);
     SDL_DestroyGPUDevice(device);
     SDL_DestroyWindow(window);
-    TTF_Quit();
     SDL_ShaderCross_Quit();
     SDL_Quit();
 

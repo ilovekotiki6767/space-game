@@ -5,8 +5,8 @@ This is currently the only way to build the game.
 ## Get a copy of the source:
 
 ```
-git clone TODO!!!!
-cd TODO!!!!
+git clone https://github.com/ilovekotiki6767/space-game
+cd space-game
 ```
 
 ## Configure and build:
