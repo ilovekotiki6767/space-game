@@ -94,7 +94,8 @@ typedef struct {
 
 typedef enum {
     GAME_RENDER_ENTRY_MESH,
-    GAME_RENDER_ENTRY_TEXT,
+    GAME_RENDER_ENTRY_SET_TARGET,
+    GAME_RENDER_ENTRY_FULLSCREEN_QUAD,
 } Game_RenderEntryType;
 
 typedef struct {
@@ -114,11 +115,16 @@ typedef struct {
             int vertex_offset;
         } mesh;
 
-        struct Game_RenderEntry_Text {
-            Game_FontHandle font_handle;
-            float x, y;
-            char text[256];
-        } text;
+        struct Game_RenderEntry_SetTarget {
+            Game_TextureHandle color_target;
+            Bool clear;
+            Vec4 clear_color;
+        } set_target;
+
+        struct Game_RenderEntry_FullscreenQuad {
+            Game_PipelineHandle pipeline_handle;
+            Game_TextureHandle input_textures[4];
+        } fullscreen_quad;
     };
 } Game_RenderEntry;
 
@@ -189,6 +195,8 @@ typedef struct {
 
     Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path);
 
+    Game_TextureHandle (*CreateRenderTarget)(Vec2 size);
+
     Game_FileResult (*ReadEntireFile)(const char *path);
 
     void (*FreeFileMemory)(void *memory);
@@ -221,6 +229,30 @@ static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const
     }
 
     return 0;
+}
+
+static void Game_PushSetTarget(Game_Platform *platform, const Game_TextureHandle color_target, const Bool clear,
+                               const Vec4 clear_color) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
+        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
+        entry->type = GAME_RENDER_ENTRY_SET_TARGET;
+        entry->set_target.color_target = color_target;
+        entry->set_target.clear = clear;
+        entry->set_target.clear_color = clear_color;
+    }
+}
+
+static void Game_PushFullscreenQuad(Game_Platform *platform, const Game_PipelineHandle pipeline_handle,
+                                    const Game_TextureHandle *inputs, const int input_count) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries)) {
+        Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
+        entry->type = GAME_RENDER_ENTRY_FULLSCREEN_QUAD;
+        entry->fullscreen_quad.pipeline_handle = pipeline_handle;
+
+        for (int i = 0; i < 4; ++i) {
+            entry->fullscreen_quad.input_textures[i] = (i < input_count && inputs) ? inputs[i] : 0;
+        }
+    }
 }
 
 typedef void (*Game_UpdateAndRender_Func)(Game_Platform *platform);

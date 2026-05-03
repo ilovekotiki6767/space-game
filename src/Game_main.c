@@ -360,6 +360,8 @@ void UpdateAndRender(Game_Platform *platform) {
         break;
     }
 
+    Game_PushSetTarget(platform, 0, True, BLACK);
+
     for (int i = 0; i < state->entity_count; ++i) {
         const Entity *entity = &state->entities[i];
 
