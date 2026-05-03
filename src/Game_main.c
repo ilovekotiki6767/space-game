@@ -250,6 +250,8 @@ void UpdateAndRender(Game_Platform *platform) {
                                                           "assets/shaders/earth.frag.spv");
         earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
         earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
+        earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
+        earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
 
         state->position = Vector3d(0.0, 1.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
@@ -389,6 +391,14 @@ void UpdateAndRender(Game_Platform *platform) {
                 for (int j = 0; j < 4; ++j) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
+
+                const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
+                entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
+                entry->mesh.fragment_uniforms[1] = d.x;
+                entry->mesh.fragment_uniforms[2] = d.y;
+                entry->mesh.fragment_uniforms[3] = d.z;
+                entry->mesh.fragment_uniforms[4] = (float)(platform->elapsed_time * entity->angular_velocity);
+                entry->mesh.fragment_uniform_count = 5;
             }
         }
     }
