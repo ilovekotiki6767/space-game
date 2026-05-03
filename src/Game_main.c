@@ -342,6 +342,19 @@ void UpdateAndRender(Game_Platform *platform) {
         mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
 #endif
 
+        Entity *mercury = AddEntity(state);
+        mercury->type = ENTITY_MESH;
+        mercury->position = Vector3d(0.0, 0.0, 0.0);
+        mercury->dim = Vector3(1.0f, 1.0f, 1.0f);
+        mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
+        mercury->angular_velocity = (2.0 * PI) / 5067000.0;
+        mercury->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        mercury->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                            "assets/shaders/planet.frag.spv",
+                                                            GAME_CULL_MODE_BACK,
+                                                            GAME_BLEND_MODE_OPAQUE);
+        mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
+
         state->position = Vector3d(0.0, 25362001.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
