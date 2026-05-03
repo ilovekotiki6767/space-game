@@ -155,16 +155,20 @@ static Mat4X4 Matrix4X4(
     };
 }
 
+
 static Mat4X4 Matrix_Perspective(const float fov_y, const float aspect_ratio, const float near, const float far) {
     const float n = near;
+    const float f = far;
     const float t = Tan(fov_y / 2.0f) * n;
+    const float b = -t;
     const float r = t * aspect_ratio;
+    const float l = -r;
 
     return Matrix4X4(
-        n / r, 0, 0, 0,
-        0, n / t, 0, 0,
-        0, 0, 0.0f, n,
-        0, 0, -1.0f, 0.0f
+        (2 * n) / (r - l), 0, (r + l) / (r - l), 0,
+        0, (2 * n) / (t - b), (t + b) / (t - b), 0,
+        0, 0, -(f + n) / (f - n), -(2 * n * f) / (f - n),
+        0, 0, -1, 1
     );
 }
 

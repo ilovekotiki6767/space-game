@@ -273,7 +273,7 @@ static PipelineBuilder BeginPipeline(void) {
 
     b.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
 
-    b.rasterizer.front_face = SDL_GPU_FRONTFACE_CLOCKWISE;
+    b.rasterizer.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     b.rasterizer.cull_mode = SDL_GPU_CULLMODE_BACK;
 
     b.multisample.sample_count = SDL_GPU_SAMPLECOUNT_4;

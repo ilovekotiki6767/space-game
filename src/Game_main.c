@@ -154,6 +154,7 @@ typedef struct {
 
     double angular_velocity;
 
+    Game_PipelineHandle pipeline_handle;
     Game_TextureHandle texture_handles[4];
     Mesh mesh;
     Vec3d position;
@@ -240,13 +241,15 @@ void UpdateAndRender(Game_Platform *platform) {
 
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_MESH;
-        earth->position = Vector3d(0.0, -6371000.0, 0.0);
+        earth->position = Vector3d(0.0, 6371000.0, 0.0);
         earth->dim = Vector3(1.0f, 1.0f, 1.0f);
         earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
         earth->angular_velocity = (2.0 * PI) / 86400.0;
-        earth->mesh = LoadOBJ(platform, "sphere.obj");
-        earth->texture_handles[0] = platform->LoadImageFile("earth.jpg");
-        earth->texture_handles[1] = platform->LoadImageFile("earth_clouds.jpg");
+        earth->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        earth->pipeline_handle = platform->CreatePipeline("assets/shaders/earth.vert.spv",
+                                                          "assets/shaders/earth.frag.spv");
+        earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
+        earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
 
         state->position = Vector3d(0.0, 1.5, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
@@ -268,7 +271,7 @@ void UpdateAndRender(Game_Platform *platform) {
         }
 
         state->yaw += platform->mouse_delta_x * 0.0015f;
-        state->pitch -= platform->mouse_delta_y * 0.0015f;
+        state->pitch += platform->mouse_delta_y * 0.0015f;
 
         state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
@@ -319,7 +322,7 @@ void UpdateAndRender(Game_Platform *platform) {
             Vec3 right = Vector3(Cos(state->yaw), 0, -Sin(state->yaw));
             right = Vec3_Normalize(right);
 
-            const Vec3 up = Vector3(0, 1, 0);
+            const Vec3 up = Vector3(0, -1, 0);
 
             const float speed = 10000000.0f * platform->delta_time;
 
@@ -380,11 +383,10 @@ void UpdateAndRender(Game_Platform *platform) {
                                                                mesh.index_count);
             if (entry) {
                 entry->mesh.transform = transform;
-
+                entry->mesh.pipeline_handle = entity->pipeline_handle;
                 for (int j = 0; j < 4; ++j) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
-
             }
         }
     }

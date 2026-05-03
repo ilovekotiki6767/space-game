@@ -24,8 +24,8 @@ target_include_directories(Platform PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_dependencies(Platform Game)
 
 set(SHADER_SOURCES
-    shaders/earth.frag
-    shaders/earth.vert
+        assets/shaders/earth.frag
+        assets/shaders/earth.vert
 )
 
 set(SHADER_OUTPUTS "")
@@ -40,6 +40,20 @@ foreach(SHADER ${SHADER_SOURCES})
             DEPENDS ${INPUT}
     )
     list(APPEND SHADER_OUTPUTS ${OUTPUT})
+endforeach()
+
+file(GLOB_RECURSE ASSET_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} assets/*)
+list(FILTER ASSET_FILES EXCLUDE REGEX "^assets/shaders/")
+
+foreach(ASSET ${ASSET_FILES})
+    get_filename_component(ASSET_DIR ${ASSET} PATH)
+
+    add_custom_command(TARGET Platform POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:Platform>/${ASSET_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/${ASSET}
+            $<TARGET_FILE_DIR:Platform>/${ASSET}
+    )
 endforeach()
 
 add_custom_target(Shaders ALL DEPENDS ${SHADER_OUTPUTS})
