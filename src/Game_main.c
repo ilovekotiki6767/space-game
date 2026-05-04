@@ -161,6 +161,10 @@ typedef struct {
     float overlay_strength;
     float overlay_scroll;
 
+    float specular_strength;
+    float specular_shininess;
+    float specular_whiteness;
+
     Game_PipelineHandle pipeline_handle;
     /// for planets:
     /// * 1 -- the surface texture
@@ -265,6 +269,31 @@ void UpdateAndRender(Game_Platform *platform) {
         mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
 #endif
 
+        Entity *earth = AddEntity(state);
+        earth->type = ENTITY_PLANET;
+        earth->position = Vector3d(1.0, 1.0, 1.0);
+        earth->axial_tilt = 0.4091f;
+        earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
+        earth->angular_velocity = (2.0 * PI) / 86400.0;
+        earth->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                          "assets/shaders/planet.frag.spv", GAME_CULL_MODE_BACK,
+                                                          GAME_BLEND_MODE_OPAQUE);
+        earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
+        earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
+        earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
+
+        earth->overlay_strength = 0.6f;
+        earth->overlay_scroll = 0.002f;
+
+        earth->atmosphere_color = Vector3(0.45f, 0.70f, 1.0f);
+        earth->atmosphere_intensity = 0.6f;
+
+        earth->specular_strength = 0.8f;
+        earth->specular_shininess = 64.0f;
+        earth->specular_whiteness = 0.9f;
+
+#if 0
+
         // ------------------------------------------
         Entity *venus = AddEntity(state);
         venus->type = ENTITY_PLANET;
@@ -285,24 +314,7 @@ void UpdateAndRender(Game_Platform *platform) {
         venus->atmosphere_color = Vector3(0.95f, 0.80f, 0.45f);
         venus->atmosphere_intensity = 1.2f;
 
-#if 0
-
         // ------------------------------------------
-
-        Entity *earth = AddEntity(state);
-        earth->type = ENTITY_PLANET;
-        earth->position = Vector3d(149598023000.0, 0.0, 0.0);
-        earth->axial_tilt = 0.4091f;
-        earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
-        earth->angular_velocity = (2.0 * PI) / 86400.0;
-        earth->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        earth->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                          "assets/shaders/earth.frag.spv", GAME_CULL_MODE_BACK,
-                                                          GAME_BLEND_MODE_OPAQUE);
-        earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
-        earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
-        earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
-        earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
 
         // ------------------------------------------
         Entity *mars = AddEntity(state);
@@ -578,6 +590,10 @@ void UpdateAndRender(Game_Platform *platform) {
                 Game_PushFragmentUniformVec4(entry, Vector4(entity->atmosphere_color.x, entity->atmosphere_color.y,
                                                             entity->atmosphere_color.z,
                                                             entity->atmosphere_intensity)); // atmosphere
+                Game_PushFragmentUniformVec4(entry, Vector4(entity->specular_strength,
+                                                            entity->specular_shininess,
+                                                            entity->specular_whiteness,
+                                                            0.0f)); // specular
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
                 entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
