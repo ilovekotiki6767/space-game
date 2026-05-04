@@ -169,6 +169,7 @@ typedef struct {
     /// for planets:
     /// * 1 -- the surface texture
     /// * 2 -- additional overlay which will be mixed with the surface, for example venus' atmosphere or earth' clouds
+    /// * 3 -- specular map
     Game_TextureHandle texture_handles[4];
     Vec3d position;
     Vec3 scale;
@@ -269,6 +270,7 @@ void UpdateAndRender(Game_Platform *platform) {
         mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
 #endif
 
+#if 0
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_PLANET;
         earth->position = Vector3d(1.0, 1.0, 1.0);
@@ -291,6 +293,7 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->specular_strength = 0.8f;
         earth->specular_shininess = 64.0f;
         earth->specular_whiteness = 0.9f;
+#endif
 
 #if 0
 
@@ -315,23 +318,27 @@ void UpdateAndRender(Game_Platform *platform) {
         venus->atmosphere_intensity = 1.2f;
 
         // ------------------------------------------
+#endif
 
+#if 0
         // ------------------------------------------
         Entity *mars = AddEntity(state);
         mars->type = ENTITY_PLANET;
-        mars->position = Vector3d(227939200000.0, 0.0, 0.0);
+        mars->position = Vector3d(1.0, 1.0, 1.0);
         mars->axial_tilt = 0.4396f;
         mars->scale = Vector3(3389500.0f, 3389500.0f, 3389500.0f);
         mars->angular_velocity = (2.0 * PI) / 88642.0;
-        mars->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
         mars->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                          "assets/shaders/planet.frag.spv",
                                                          GAME_CULL_MODE_BACK,
                                                          GAME_BLEND_MODE_OPAQUE);
         mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
-        mars->has_atmosphere = True;
+
         mars->atmosphere_color = Vector3(0.80f, 0.40f, 0.20f);
         mars->atmosphere_intensity = 0.3f;
+#endif
+
+#if 0
 
         // ------------------------------------------
         Entity *jupiter = AddEntity(state);
@@ -413,7 +420,7 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->atmosphere_intensity = 0.8f;
 #endif
 
-        state->position = Vector3d(1.0, 6051802.0, 1.0);
+        state->position = Vector3d(1.0, -3389502.0, 1.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
@@ -486,7 +493,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, -1, 0);
 
-            const float speed = 5000000.0f * platform->delta_time;
+            const float speed = 50000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 
