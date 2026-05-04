@@ -215,6 +215,20 @@ typedef struct {
 
 // Functions
 
+static void Game_PushFragmentUniformFloat(Game_RenderEntry *entry, const float value) {
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value;
+}
+
+static void Game_PushFragmentUniformBool(Game_RenderEntry *entry, const Bool value) {
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = (float)value;
+}
+
+static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 value) {
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.x;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.y;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.z;
+}
+
 static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const Vertex *vertices,
                                                   const int vertex_count, const unsigned short *indices,
                                                   const int index_count) {
@@ -227,6 +241,8 @@ static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const
         entry->mesh.vertex_offset = platform->transient_vertex_count;
         entry->mesh.index_offset = platform->transient_index_count;
         entry->mesh.index_count = index_count;
+        entry->mesh.vertex_uniform_count = 0;
+        entry->mesh.fragment_uniform_count = 0;
 
         for (int i = 0; i < vertex_count; ++i) {
             platform->transient_vertices[platform->transient_vertex_count++] = vertices[i];

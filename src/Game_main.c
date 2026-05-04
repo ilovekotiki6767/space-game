@@ -155,6 +155,10 @@ typedef struct {
     double angular_velocity;
     float axial_tilt;
 
+    Bool has_atmosphere;
+    Vec3 atmosphere_color;
+    float atmosphere_intensity;
+
     Game_PipelineHandle pipeline_handle;
     Game_TextureHandle texture_handles[4];
     Mesh mesh;
@@ -256,7 +260,6 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
 #endif
 
-#if 0
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_MESH;
         saturn->position = Vector3d(0.0, 0.0, 0.0);
@@ -269,6 +272,10 @@ void UpdateAndRender(Game_Platform *platform) {
                                                            GAME_BLEND_MODE_OPAQUE);
         saturn->texture_handles[0] = platform->LoadImageFile("assets/images/saturn.jpg");
 
+        saturn->has_atmosphere = True;
+        saturn->atmosphere_color = Vector3(0.85f, 0.75f, 0.60f);
+        saturn->atmosphere_intensity = 0.6f;
+
         Entity *rings = AddEntity(state);
         rings->type = ENTITY_MESH;
         rings->position = saturn->position;
@@ -280,7 +287,6 @@ void UpdateAndRender(Game_Platform *platform) {
                                                           "assets/shaders/rings.frag.spv", GAME_CULL_MODE_NONE,
                                                           GAME_BLEND_MODE_ALPHA);
         rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
-#endif
 
 #if 0
         Entity *jupiter = AddEntity(state);
@@ -297,7 +303,6 @@ void UpdateAndRender(Game_Platform *platform) {
         jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
 #endif
 
-
 #if 0
         Entity *neptune = AddEntity(state);
         neptune->type = ENTITY_MESH;
@@ -311,6 +316,10 @@ void UpdateAndRender(Game_Platform *platform) {
                                                             GAME_CULL_MODE_BACK,
                                                             GAME_BLEND_MODE_OPAQUE);
         neptune->texture_handles[0] = platform->LoadImageFile("assets/images/neptune.jpg");
+
+        neptune->has_atmosphere = True;
+        neptune->atmosphere_color = Vector3(0.20f, 0.40f, 0.90f);
+        neptune->atmosphere_intensity = 0.8f;
 #endif
 
 #if 0
@@ -326,6 +335,10 @@ void UpdateAndRender(Game_Platform *platform) {
                                                            GAME_CULL_MODE_BACK,
                                                            GAME_BLEND_MODE_OPAQUE);
         uranus->texture_handles[0] = platform->LoadImageFile("assets/images/uranus.jpg");
+
+        uranus->has_atmosphere = True;
+        uranus->atmosphere_color = Vector3(0.60f, 0.85f, 0.90f);
+        uranus->atmosphere_intensity = 0.7f;
 #endif
 
 #if 0
@@ -341,6 +354,10 @@ void UpdateAndRender(Game_Platform *platform) {
                                                          GAME_CULL_MODE_BACK,
                                                          GAME_BLEND_MODE_OPAQUE);
         mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
+
+        mars->has_atmosphere = True;
+        mars->atmosphere_color = Vector3(0.80f, 0.40f, 0.20f);
+        mars->atmosphere_intensity = 0.3f;
 #endif
 
 #if 0
@@ -516,8 +533,13 @@ void UpdateAndRender(Game_Platform *platform) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
 
-                entry->mesh.fragment_uniforms[0] = (float) (platform->elapsed_time * entity->angular_velocity);
-                entry->mesh.fragment_uniform_count = 1;
+                Game_PushFragmentUniformBool(entry, entity->has_atmosphere);
+                Game_PushFragmentUniformFloat(entry, entity->atmosphere_intensity);
+                Game_PushFragmentUniformVec3(entry, entity->atmosphere_color);
+                Game_PushFragmentUniformFloat(entry, (float) (platform->elapsed_time * entity->angular_velocity));
+                Game_PushFragmentUniformFloat(entry, entity->axial_tilt);
+                Game_PushFragmentUniformVec3(entry, Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
+                Game_PushFragmentUniformVec3(entry, entity->scale);
 
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
