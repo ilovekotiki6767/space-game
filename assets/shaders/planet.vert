@@ -1,21 +1,22 @@
 #version 450
 
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNorm;
-layout(location = 2) in vec4 aColor;
-layout(location = 3) in vec2 aTexCoord;
+layout(location = 0) in vec3 input_position;
+layout(location = 1) in vec3 input_normal;
+layout(location = 2) in vec4 input_color;
+layout(location = 3) in vec2 input_uv;
 
-layout(set = 1, binding = 0) uniform UBO {
-    mat4 uMVP;
-};
+layout(location = 0) out vec3 output_normal;
+layout(location = 1) out vec4 output_color;
+layout(location = 2) out vec2 output_uv;
 
-layout(location = 0) out vec2 vTexCoord;
-layout(location = 1) out vec3 vNormal;
-layout(location = 2) out vec3 vObjectPos;
+layout(set = 1, binding = 0) uniform vertex_uniforms {
+    mat4 mvp;
+} u;
 
 void main() {
-    gl_Position = uMVP * vec4(aPos, 1.0);
-    vTexCoord   = aTexCoord;
-    vNormal     = aNorm;
-    vObjectPos  = aPos;
+    gl_Position = u.mvp * vec4(input_position, 1.0);
+
+    output_normal = input_normal;
+    output_color = input_color;
+    output_uv = input_uv;
 }

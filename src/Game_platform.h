@@ -151,7 +151,8 @@ typedef enum {
     GAME_KEY_ESCAPE, GAME_KEY_SPACE, GAME_KEY_LEFT_CTRL,
     GAME_KEY_MOUSE_LEFT, GAME_KEY_MOUSE_RIGHT,
 
-    GAME_KEY_F11,
+    GAME_KEY_F1, GAME_KEY_F2, GAME_KEY_F3, GAME_KEY_F4, GAME_KEY_F5, GAME_KEY_F6, GAME_KEY_F7, GAME_KEY_F8, GAME_KEY_F9,
+    GAME_KEY_F10, GAME_KEY_F11,
 
     GAME_KEY_COUNT,
 } Game_Key;
@@ -174,10 +175,10 @@ typedef struct {
 
     Game_ButtonState input[GAME_KEY_COUNT];
 
-    Vertex transient_vertices[16384];
+    Vertex transient_vertices[16384 * 4];
     int transient_vertex_count;
 
-    unsigned short transient_indices[32768];
+    unsigned short transient_indices[32768 * 4];
     int transient_index_count;
 
     Game_RenderEntry render_entries[1024];
@@ -220,7 +221,7 @@ static void Game_PushFragmentUniformFloat(Game_RenderEntry *entry, const float v
 }
 
 static void Game_PushFragmentUniformBool(Game_RenderEntry *entry, const Bool value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = (float)value;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = (float) value;
 }
 
 static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 value) {

@@ -322,6 +322,16 @@ static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
         case SDL_SCANCODE_ESCAPE: return GAME_KEY_ESCAPE;
         case SDL_SCANCODE_SPACE: return GAME_KEY_SPACE;
         case SDL_SCANCODE_LCTRL: return GAME_KEY_LEFT_CTRL;
+        case SDL_SCANCODE_F1: return GAME_KEY_F1;
+        case SDL_SCANCODE_F2: return GAME_KEY_F2;
+        case SDL_SCANCODE_F3: return GAME_KEY_F3;
+        case SDL_SCANCODE_F4: return GAME_KEY_F4;
+        case SDL_SCANCODE_F5: return GAME_KEY_F5;
+        case SDL_SCANCODE_F6: return GAME_KEY_F6;
+        case SDL_SCANCODE_F7: return GAME_KEY_F7;
+        case SDL_SCANCODE_F8: return GAME_KEY_F8;
+        case SDL_SCANCODE_F9: return GAME_KEY_F9;
+        case SDL_SCANCODE_F10: return GAME_KEY_F10;
         case SDL_SCANCODE_F11: return GAME_KEY_F11;
 
         default: return GAME_KEY_NONE;
