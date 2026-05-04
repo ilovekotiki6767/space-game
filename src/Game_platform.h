@@ -216,18 +216,23 @@ typedef struct {
 
 // Functions
 
-static void Game_PushFragmentUniformFloat(Game_RenderEntry *entry, const float value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value;
+static void Game_PushVertexUniformMat4X4(Game_RenderEntry *entry, const Mat4X4 matrix) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            entry->mesh.vertex_uniforms[entry->mesh.vertex_uniform_count++] = matrix.m[i][j];
+        }
+    }
 }
 
-static void Game_PushFragmentUniformBool(Game_RenderEntry *entry, const Bool value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = (float) value;
+static void Game_PushFragmentUniformVec4(Game_RenderEntry *entry, const Vec4 vector) {
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.x;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.y;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.z;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.w;
 }
 
-static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.x;
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.y;
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.z;
+static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 vector, const float w) {
+    Game_PushFragmentUniformVec4(entry, Vector4(vector.x, vector.y, vector.z, w));
 }
 
 static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const Vertex *vertices,

@@ -248,7 +248,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         Entity *mercury = AddEntity(state);
         mercury->type = ENTITY_MESH;
-        mercury->position = Vector3d(0.0, 0.0, 0.0);
+        mercury->position = Vector3d(1.0, 1.0, 1.0);
         mercury->axial_tilt = 0.0006f;
         mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
         mercury->angular_velocity = (2.0 * PI) / 5067000.0;
@@ -487,14 +487,22 @@ void UpdateAndRender(Game_Platform *platform) {
             }
 
             // NOTE: Debug
-            if (WasPressed(platform->input[GAME_KEY_F1])) state->position = Vector3d(  57909000000.0 + 3000000.0, 0.0, 0.0);  // mercury
-            if (WasPressed(platform->input[GAME_KEY_F2])) state->position = Vector3d( 108209000000.0 + 7000000.0, 0.0, 0.0);  // venus
-            if (WasPressed(platform->input[GAME_KEY_F3])) state->position = Vector3d( 149598023000.0 + 7000000.0, 0.0, 0.0);  // earth
-            if (WasPressed(platform->input[GAME_KEY_F4])) state->position = Vector3d( 227939200000.0 + 4000000.0, 0.0, 0.0);  // mars
-            if (WasPressed(platform->input[GAME_KEY_F5])) state->position = Vector3d( 778570000000.0 + 80000000.0, 0.0, 0.0); // jupiter
-            if (WasPressed(platform->input[GAME_KEY_F6])) state->position = Vector3d(1432041000000.0 + 70000000.0, 0.0, 0.0); // saturn
-            if (WasPressed(platform->input[GAME_KEY_F7])) state->position = Vector3d(2867043000000.0 + 30000000.0, 0.0, 0.0); // uranus
-            if (WasPressed(platform->input[GAME_KEY_F8])) state->position = Vector3d(4514953000000.0 + 30000000.0, 0.0, 0.0); // neptune
+            if (WasPressed(platform->input[GAME_KEY_F1])) state->position = Vector3d(
+                                                              57909000000.0 + 3000000.0, 0.0, 0.0); // mercury
+            if (WasPressed(platform->input[GAME_KEY_F2])) state->position = Vector3d(
+                                                              108209000000.0 + 7000000.0, 0.0, 0.0); // venus
+            if (WasPressed(platform->input[GAME_KEY_F3])) state->position = Vector3d(
+                                                              149598023000.0 + 7000000.0, 0.0, 0.0); // earth
+            if (WasPressed(platform->input[GAME_KEY_F4])) state->position = Vector3d(
+                                                              227939200000.0 + 4000000.0, 0.0, 0.0); // mars
+            if (WasPressed(platform->input[GAME_KEY_F5])) state->position = Vector3d(
+                                                              778570000000.0 + 80000000.0, 0.0, 0.0); // jupiter
+            if (WasPressed(platform->input[GAME_KEY_F6])) state->position = Vector3d(
+                                                              1432041000000.0 + 70000000.0, 0.0, 0.0); // saturn
+            if (WasPressed(platform->input[GAME_KEY_F7])) state->position = Vector3d(
+                                                              2867043000000.0 + 30000000.0, 0.0, 0.0); // uranus
+            if (WasPressed(platform->input[GAME_KEY_F8])) state->position = Vector3d(
+                                                              4514953000000.0 + 30000000.0, 0.0, 0.0); // neptune
 
             if (direction.x != 0.0f || direction.y != 0.0f || direction.z != 0.0f) {
                 direction = Vec3_Normalize(direction);
@@ -542,6 +550,11 @@ void UpdateAndRender(Game_Platform *platform) {
                     entry->mesh.texture_handles[j] = entity->texture_handles[j];
                 }
 
+                Game_PushVertexUniformMat4X4(entry, Matrix_Multiply(platform->view_projection, entry->mesh.transform));
+                // mvp
+                Game_PushVertexUniformMat4X4(entry, entry->mesh.transform); // model
+
+                Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f); // sun_direction
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
                 entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;

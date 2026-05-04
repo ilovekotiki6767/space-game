@@ -218,8 +218,10 @@ static void FlushRenderEntries(const Game_Platform *platform, SDL_GPUCommandBuff
                     }
                     SDL_BindGPUFragmentSamplers(render_pass, 0, sampler_bindings, 4);
 
-                    Mat4X4 mvp = Matrix_Multiply(platform->view_projection, mesh->transform);
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
+                    if (mesh->vertex_uniform_count > 0) {
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, mesh->vertex_uniforms,
+                                                     (Uint32) (mesh->vertex_uniform_count * sizeof(float)));
+                    }
 
                     if (mesh->fragment_uniform_count > 0) {
                         SDL_PushGPUFragmentUniformData(command_buffer, 0,
