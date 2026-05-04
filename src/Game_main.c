@@ -244,34 +244,97 @@ void UpdateAndRender(Game_Platform *platform) {
         state->sine = 0.0f;
 #endif
 
-#if 0
+        Entity *mercury = AddEntity(state);
+        mercury->type = ENTITY_MESH;
+        mercury->position = Vector3d(57909000000.0, 0.0, 0.0);
+        mercury->axial_tilt = 0.0006f;
+        mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
+        mercury->angular_velocity = (2.0 * PI) / 5067000.0;
+        mercury->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        mercury->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                            "assets/shaders/planet.frag.spv",
+                                                            GAME_CULL_MODE_BACK,
+                                                            GAME_BLEND_MODE_OPAQUE);
+        mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
+
+        // ------------------------------------------
+        Entity *venus = AddEntity(state);
+        venus->type = ENTITY_MESH;
+        venus->position = Vector3d(108209000000.0, 0.0, 0.0);
+        venus->axial_tilt = 3.0956f;
+        venus->scale = Vector3(6051800.0f, 6051800.0f, 6051800.0f);
+        venus->angular_velocity = (2.0 * PI) / 20997000.0;
+        venus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        venus->pipeline_handle = platform->CreatePipeline("assets/shaders/venus.vert.spv",
+                                                          "assets/shaders/venus.frag.spv",
+                                                          GAME_CULL_MODE_BACK,
+                                                          GAME_BLEND_MODE_OPAQUE);
+        venus->texture_handles[0] = platform->LoadImageFile("assets/images/venus.jpg");
+        venus->texture_handles[1] = platform->LoadImageFile("assets/images/venus_atmosphere.jpg");
+
+        // ------------------------------------------
+#define EARTH_ORBIT_X 149598023000.0
+#define EARTH_RADIUS   6371000.0f
+
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_MESH;
-        earth->position = Vector3d(0.0, 6371000.0, 0.0);
+        earth->position = Vector3d(EARTH_ORBIT_X, 0.0, 0.0);
         earth->axial_tilt = 0.4091f;
-        earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
+        earth->scale = Vector3(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
         earth->angular_velocity = (2.0 * PI) / 86400.0;
         earth->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
         earth->pipeline_handle = platform->CreatePipeline("assets/shaders/earth.vert.spv",
-                                                          "assets/shaders/earth.frag.spv");
+                                                          "assets/shaders/earth.frag.spv", GAME_CULL_MODE_BACK,
+                                                          GAME_BLEND_MODE_OPAQUE);
         earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
         earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
         earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
         earth->texture_handles[3] = platform->LoadImageFile("assets/images/earth_normal.tif");
-#endif
 
+        // ------------------------------------------
+        Entity *mars = AddEntity(state);
+        mars->type = ENTITY_MESH;
+        mars->position = Vector3d(227939200000.0, 0.0, 0.0);
+        mars->axial_tilt = 0.4396f;
+        mars->scale = Vector3(3389500.0f, 3389500.0f, 3389500.0f);
+        mars->angular_velocity = (2.0 * PI) / 88642.0;
+        mars->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        mars->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                         "assets/shaders/planet.frag.spv",
+                                                         GAME_CULL_MODE_BACK,
+                                                         GAME_BLEND_MODE_OPAQUE);
+        mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
+        mars->has_atmosphere = True;
+        mars->atmosphere_color = Vector3(0.80f, 0.40f, 0.20f);
+        mars->atmosphere_intensity = 0.3f;
+
+        // ------------------------------------------
+        Entity *jupiter = AddEntity(state);
+        jupiter->type = ENTITY_MESH;
+        jupiter->position = Vector3d(778570000000.0, 0.0, 0.0);
+        jupiter->axial_tilt = 0.0546f;
+        jupiter->scale = Vector3(71492000.0f, 66854000.0f, 71492000.0f);
+        jupiter->angular_velocity = (2.0 * PI) / 35730.0;
+        jupiter->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        jupiter->pipeline_handle = platform->CreatePipeline("assets/shaders/jupiter.vert.spv",
+                                                            "assets/shaders/jupiter.frag.spv",
+                                                            GAME_CULL_MODE_BACK,
+                                                            GAME_BLEND_MODE_OPAQUE);
+        jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
+
+        // ------------------------------------------
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_MESH;
-        saturn->position = Vector3d(0.0, 0.0, 0.0);
+        saturn->position = Vector3d(1432041000000.0, 0.0, 0.0);
         saturn->axial_tilt = 0.4665f;
         saturn->scale = Vector3(60268000.0f, 54364000.0f, 60268000.0f);
         saturn->angular_velocity = (2.0 * PI) / 38520.0;
         saturn->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
         saturn->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                           "assets/shaders/planet.frag.spv", GAME_CULL_MODE_BACK,
+                                                           "assets/shaders/planet.frag.spv",
+                                                           GAME_CULL_MODE_BACK,
                                                            GAME_BLEND_MODE_OPAQUE);
         saturn->texture_handles[0] = platform->LoadImageFile("assets/images/saturn.jpg");
-
         saturn->has_atmosphere = True;
         saturn->atmosphere_color = Vector3(0.85f, 0.75f, 0.60f);
         saturn->atmosphere_intensity = 0.6f;
@@ -284,29 +347,32 @@ void UpdateAndRender(Game_Platform *platform) {
         rings->angular_velocity = saturn->angular_velocity;
         rings->mesh = LoadOBJ(platform, "assets/models/rings.obj");
         rings->pipeline_handle = platform->CreatePipeline("assets/shaders/rings.vert.spv",
-                                                          "assets/shaders/rings.frag.spv", GAME_CULL_MODE_NONE,
+                                                          "assets/shaders/rings.frag.spv",
+                                                          GAME_CULL_MODE_NONE,
                                                           GAME_BLEND_MODE_ALPHA);
         rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
 
-#if 0
-        Entity *jupiter = AddEntity(state);
-        jupiter->type = ENTITY_MESH;
-        jupiter->position = Vector3d(0.0, 0.0, 0.0);
-        jupiter->axial_tilt = 0.0546f;
-        jupiter->scale = Vector3(71492000.0f, 66854000.0f, 71492000.0f);
-        jupiter->angular_velocity = (2.0 * PI) / 35730.0;
-        jupiter->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        jupiter->pipeline_handle = platform->CreatePipeline("assets/shaders/jupiter.vert.spv",
-                                                            "assets/shaders/jupiter.frag.spv",
-                                                            GAME_CULL_MODE_BACK,
-                                                            GAME_BLEND_MODE_OPAQUE);
-        jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
-#endif
+        // ------------------------------------------
+        Entity *uranus = AddEntity(state);
+        uranus->type = ENTITY_MESH;
+        uranus->position = Vector3d(2867043000000.0, 0.0, 0.0);
+        uranus->axial_tilt = 1.7064f;
+        uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
+        uranus->angular_velocity = (2.0 * PI) / 62064.0;
+        uranus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
+        uranus->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                           "assets/shaders/planet.frag.spv",
+                                                           GAME_CULL_MODE_BACK,
+                                                           GAME_BLEND_MODE_OPAQUE);
+        uranus->texture_handles[0] = platform->LoadImageFile("assets/images/uranus.jpg");
+        uranus->has_atmosphere = True;
+        uranus->atmosphere_color = Vector3(0.60f, 0.85f, 0.90f);
+        uranus->atmosphere_intensity = 0.7f;
 
-#if 0
+        // ------------------------------------------
         Entity *neptune = AddEntity(state);
         neptune->type = ENTITY_MESH;
-        neptune->position = Vector3d(0.0, 0.0, 0.0);
+        neptune->position = Vector3d(4514953000000.0, 0.0, 0.0);
         neptune->axial_tilt = 0.4943f;
         neptune->scale = Vector3(24622000.0f, 24622000.0f, 24622000.0f);
         neptune->angular_velocity = (2.0 * PI) / 57996.0;
@@ -320,78 +386,8 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->has_atmosphere = True;
         neptune->atmosphere_color = Vector3(0.20f, 0.40f, 0.90f);
         neptune->atmosphere_intensity = 0.8f;
-#endif
 
-#if 0
-        Entity *uranus = AddEntity(state);
-        uranus->type = ENTITY_MESH;
-        uranus->position = Vector3d(0.0, 0.0, 0.0);
-        uranus->axial_tilt = 1.7064f;
-        uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
-        uranus->angular_velocity = (2.0 * PI) / 62064.0;
-        uranus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        uranus->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                           "assets/shaders/planet.frag.spv",
-                                                           GAME_CULL_MODE_BACK,
-                                                           GAME_BLEND_MODE_OPAQUE);
-        uranus->texture_handles[0] = platform->LoadImageFile("assets/images/uranus.jpg");
-
-        uranus->has_atmosphere = True;
-        uranus->atmosphere_color = Vector3(0.60f, 0.85f, 0.90f);
-        uranus->atmosphere_intensity = 0.7f;
-#endif
-
-#if 0
-        Entity *mars = AddEntity(state);
-        mars->type = ENTITY_MESH;
-        mars->position = Vector3d(0.0, 0.0, 0.0);
-        mars->axial_tilt = 0.4396f;
-        mars->scale = Vector3(3389500.0f, 3389500.0f, 3389500.0f);
-        mars->angular_velocity = (2.0 * PI) / 88642.0;
-        mars->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        mars->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                         "assets/shaders/planet.frag.spv",
-                                                         GAME_CULL_MODE_BACK,
-                                                         GAME_BLEND_MODE_OPAQUE);
-        mars->texture_handles[0] = platform->LoadImageFile("assets/images/mars.jpg");
-
-        mars->has_atmosphere = True;
-        mars->atmosphere_color = Vector3(0.80f, 0.40f, 0.20f);
-        mars->atmosphere_intensity = 0.3f;
-#endif
-
-#if 0
-        Entity *mercury = AddEntity(state);
-        mercury->type = ENTITY_MESH;
-        mercury->position = Vector3d(0.0, 0.0, 0.0);
-        mercury->axial_tilt = 0.0006f;
-        mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
-        mercury->angular_velocity = (2.0 * PI) / 5067000.0;
-        mercury->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        mercury->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                            "assets/shaders/planet.frag.spv",
-                                                            GAME_CULL_MODE_BACK,
-                                                            GAME_BLEND_MODE_OPAQUE);
-        mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
-#endif
-
-#if 0
-        Entity *venus = AddEntity(state);
-        venus->type = ENTITY_MESH;
-        venus->position = Vector3d(0.0, 0.0, 0.0);
-        venus->axial_tilt = 3.0956f;
-        venus->scale = Vector3(6051800.0f, 6051800.0f, 6051800.0f);
-        venus->angular_velocity = (2.0 * PI) / 20997000.0;
-        venus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        venus->pipeline_handle = platform->CreatePipeline("assets/shaders/venus.vert.spv",
-                                                          "assets/shaders/venus.frag.spv",
-                                                          GAME_CULL_MODE_BACK,
-                                                          GAME_BLEND_MODE_OPAQUE);
-        venus->texture_handles[0] = platform->LoadImageFile("assets/images/venus.jpg");
-        venus->texture_handles[1] = platform->LoadImageFile("assets/images/venus_atmosphere.jpg");
-#endif
-
-        state->position = Vector3d(0.0, 25362001.5, 0.0);
+        state->position = Vector3d(EARTH_ORBIT_X, EARTH_RADIUS + PLAYER_HEIGHT, 0.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
