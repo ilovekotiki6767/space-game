@@ -155,7 +155,6 @@ typedef struct {
     double angular_velocity;
     float axial_tilt;
 
-    Bool has_atmosphere;
     Vec3 atmosphere_color;
     float atmosphere_intensity;
 
@@ -282,6 +281,9 @@ void UpdateAndRender(Game_Platform *platform) {
 
         venus->overlay_strength = 0.85f;
         venus->overlay_scroll = 0.005f;
+
+        venus->atmosphere_color = Vector3(0.95f, 0.80f, 0.45f);
+        venus->atmosphere_intensity = 1.2f;
 
 #if 0
 
@@ -573,6 +575,9 @@ void UpdateAndRender(Game_Platform *platform) {
                 Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f); // sun_direction
                 Game_PushFragmentUniformVec4(entry, Vector4(entity->overlay_strength, entity->overlay_scroll, 0.0f,
                                                             0.0f)); // overlay
+                Game_PushFragmentUniformVec4(entry, Vector4(entity->atmosphere_color.x, entity->atmosphere_color.y,
+                                                            entity->atmosphere_color.z,
+                                                            entity->atmosphere_intensity)); // atmosphere
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
                 entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;

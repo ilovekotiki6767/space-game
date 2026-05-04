@@ -47,9 +47,18 @@ void main() {
 
     float limb = pow(n_dot_v, 0.5);
 
+    vec3 surface = albedo.rgb * input_color.rgb * lit * limb;
+    vec3 atmosphere = vec3(0.0);
+
+    if (u.atmosphere.w > 0.0) {
+        atmosphere = u.atmosphere.rgb * u.atmosphere.w
+        * pow(1.0 - n_dot_v, 2.0)
+        * lit;
+    }
+
     // ambient = 0.0
     // light = 0.0 + (1.0 - 0.0) * n_dot_l
     // = 1.0 * n_dot_l
     // = n_dot_l
-    output_color = vec4(albedo.rgb * input_color.rgb * lit * limb, albedo.a * input_color.a);
+    output_color = vec4(surface + atmosphere, albedo.a * input_color.a);
 }
