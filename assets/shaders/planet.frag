@@ -10,7 +10,7 @@ layout (location = 3) in vec3 input_world_position;
 layout (location = 0) out vec4 output_color;
 
 layout (set = 2, binding = 0) uniform sampler2D u_diffuse;
-layout (set = 2, binding = 1) uniform sampler2D u_tex1; // unused
+layout (set = 2, binding = 1) uniform sampler2D u_overlay;
 layout (set = 2, binding = 2) uniform sampler2D u_tex2; // unused
 layout (set = 2, binding = 3) uniform sampler2D u_tex3; // unused
 
@@ -26,6 +26,13 @@ float bayer4x4(ivec2 p) {
 
 void main() {
     vec4 albedo = texture(u_diffuse, input_uv);
+
+    if (u.overlay.x > 0.0) {
+        vec4 overlay = texture(u_overlay, vec2(input_uv.x + u.sun_direction.w * u.overlay.y, input_uv.y));
+
+        float mask = overlay.a > 0.0 ? overlay.a : max(max(overlay.r, overlay.g), overlay.b);
+        albedo.rgb = mix(albedo.rgb, overlay.rgb, mask * u.overlay.x);
+    }
 
     vec3 N = normalize(input_world_normal);
     vec3 L = normalize(u.sun_direction.xyz);

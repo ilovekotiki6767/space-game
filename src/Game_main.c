@@ -145,7 +145,7 @@ static Mesh LoadOBJ(Game_Platform *platform, const char *path) {
 
 typedef enum {
     ENTITY_NONE,
-    ENTITY_MESH,
+    ENTITY_PLANET,
 } EntityType;
 
 typedef struct {
@@ -159,12 +159,16 @@ typedef struct {
     Vec3 atmosphere_color;
     float atmosphere_intensity;
 
+    float overlay_strength;
+    float overlay_scroll;
+
     Game_PipelineHandle pipeline_handle;
+    /// for planets:
+    /// * 1 -- the surface texture
+    /// * 2 -- additional overlay which will be mixed with the surface, for example venus' atmosphere or earth' clouds
     Game_TextureHandle texture_handles[4];
-    Mesh mesh;
     Vec3d position;
     Vec3 scale;
-    Vec3 dim;
 } Entity;
 
 #if 0
@@ -207,6 +211,8 @@ typedef struct {
     Vec3d position;
     Vec3d velocity;
 
+    Mesh sphere;
+
     float pitch, yaw;
     Bool grounded;
 
@@ -244,42 +250,45 @@ void UpdateAndRender(Game_Platform *platform) {
         state->sine = 0.0f;
 #endif
 
-        const Mesh sphere = LoadOBJ(platform, "assets/models/sphere.obj");
+        state->sphere = LoadOBJ(platform, "assets/models/sphere.obj");
 
+#if 0
         Entity *mercury = AddEntity(state);
-        mercury->type = ENTITY_MESH;
+        mercury->type = ENTITY_PLANET;
         mercury->position = Vector3d(1.0, 1.0, 1.0);
         mercury->axial_tilt = 0.0006f;
         mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
         mercury->angular_velocity = (2.0 * PI) / 5067000.0;
-        mercury->mesh = sphere;
         mercury->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                             "assets/shaders/planet.frag.spv",
                                                             GAME_CULL_MODE_BACK,
                                                             GAME_BLEND_MODE_OPAQUE);
         mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
-
-#if 0
+#endif
 
         // ------------------------------------------
         Entity *venus = AddEntity(state);
-        venus->type = ENTITY_MESH;
-        venus->position = Vector3d(108209000000.0, 0.0, 0.0);
+        venus->type = ENTITY_PLANET;
+        venus->position = Vector3d(1.0, 1.0, 1.0);
         venus->axial_tilt = 3.0956f;
         venus->scale = Vector3(6051800.0f, 6051800.0f, 6051800.0f);
         venus->angular_velocity = (2.0 * PI) / 20997000.0;
-        venus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
         venus->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                          "assets/shaders/venus.frag.spv",
+                                                          "assets/shaders/planet.frag.spv",
                                                           GAME_CULL_MODE_BACK,
                                                           GAME_BLEND_MODE_OPAQUE);
         venus->texture_handles[0] = platform->LoadImageFile("assets/images/venus.jpg");
         venus->texture_handles[1] = platform->LoadImageFile("assets/images/venus_atmosphere.jpg");
 
+        venus->overlay_strength = 0.85f;
+        venus->overlay_scroll = 0.005f;
+
+#if 0
+
         // ------------------------------------------
 
         Entity *earth = AddEntity(state);
-        earth->type = ENTITY_MESH;
+        earth->type = ENTITY_PLANET;
         earth->position = Vector3d(149598023000.0, 0.0, 0.0);
         earth->axial_tilt = 0.4091f;
         earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
@@ -295,7 +304,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         // ------------------------------------------
         Entity *mars = AddEntity(state);
-        mars->type = ENTITY_MESH;
+        mars->type = ENTITY_PLANET;
         mars->position = Vector3d(227939200000.0, 0.0, 0.0);
         mars->axial_tilt = 0.4396f;
         mars->scale = Vector3(3389500.0f, 3389500.0f, 3389500.0f);
@@ -312,7 +321,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         // ------------------------------------------
         Entity *jupiter = AddEntity(state);
-        jupiter->type = ENTITY_MESH;
+        jupiter->type = ENTITY_PLANET;
         jupiter->position = Vector3d(778570000000.0, 0.0, 0.0);
         jupiter->axial_tilt = 0.0546f;
         jupiter->scale = Vector3(71492000.0f, 66854000.0f, 71492000.0f);
@@ -326,7 +335,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         // ------------------------------------------
         Entity *saturn = AddEntity(state);
-        saturn->type = ENTITY_MESH;
+        saturn->type = ENTITY_PLANET;
         saturn->position = Vector3d(1432041000000.0, 0.0, 0.0);
         saturn->axial_tilt = 0.4665f;
         saturn->scale = Vector3(60268000.0f, 54364000.0f, 60268000.0f);
@@ -342,7 +351,7 @@ void UpdateAndRender(Game_Platform *platform) {
         saturn->atmosphere_intensity = 0.6f;
 
         Entity *rings = AddEntity(state);
-        rings->type = ENTITY_MESH;
+        rings->type = ENTITY_PLANET;
         rings->position = saturn->position;
         rings->axial_tilt = saturn->axial_tilt;
         rings->scale = Vector3(60268000.0f, 60268000.0f, 60268000.0f);
@@ -356,7 +365,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         // ------------------------------------------
         Entity *uranus = AddEntity(state);
-        uranus->type = ENTITY_MESH;
+        uranus->type = ENTITY_PLANET;
         uranus->position = Vector3d(2867043000000.0, 0.0, 0.0);
         uranus->axial_tilt = 1.7064f;
         uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
@@ -373,7 +382,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
         // ------------------------------------------
         Entity *neptune = AddEntity(state);
-        neptune->type = ENTITY_MESH;
+        neptune->type = ENTITY_PLANET;
         neptune->position = Vector3d(4514953000000.0, 0.0, 0.0);
         neptune->axial_tilt = 0.4943f;
         neptune->scale = Vector3(24622000.0f, 24622000.0f, 24622000.0f);
@@ -390,7 +399,7 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->atmosphere_intensity = 0.8f;
 #endif
 
-        state->position = Vector3d(0.0, 0.0, 0.0);
+        state->position = Vector3d(1.0, 6051802.0, 1.0);
         state->velocity = Vector3d(0.0, 0.0, 0.0);
         state->yaw = 0.0f;
         state->pitch = 0.0f;
@@ -487,22 +496,30 @@ void UpdateAndRender(Game_Platform *platform) {
             }
 
             // NOTE: Debug
-            if (WasPressed(platform->input[GAME_KEY_F1])) state->position = Vector3d(
-                                                              57909000000.0 + 3000000.0, 0.0, 0.0); // mercury
-            if (WasPressed(platform->input[GAME_KEY_F2])) state->position = Vector3d(
-                                                              108209000000.0 + 7000000.0, 0.0, 0.0); // venus
-            if (WasPressed(platform->input[GAME_KEY_F3])) state->position = Vector3d(
-                                                              149598023000.0 + 7000000.0, 0.0, 0.0); // earth
-            if (WasPressed(platform->input[GAME_KEY_F4])) state->position = Vector3d(
-                                                              227939200000.0 + 4000000.0, 0.0, 0.0); // mars
-            if (WasPressed(platform->input[GAME_KEY_F5])) state->position = Vector3d(
-                                                              778570000000.0 + 80000000.0, 0.0, 0.0); // jupiter
-            if (WasPressed(platform->input[GAME_KEY_F6])) state->position = Vector3d(
-                                                              1432041000000.0 + 70000000.0, 0.0, 0.0); // saturn
-            if (WasPressed(platform->input[GAME_KEY_F7])) state->position = Vector3d(
-                                                              2867043000000.0 + 30000000.0, 0.0, 0.0); // uranus
-            if (WasPressed(platform->input[GAME_KEY_F8])) state->position = Vector3d(
-                                                              4514953000000.0 + 30000000.0, 0.0, 0.0); // neptune
+            if (WasPressed(platform->input[GAME_KEY_F1]))
+                state->position = Vector3d(
+                    57909000000.0 + 3000000.0, 0.0, 0.0); // mercury
+            if (WasPressed(platform->input[GAME_KEY_F2]))
+                state->position = Vector3d(
+                    108209000000.0 + 7000000.0, 0.0, 0.0); // venus
+            if (WasPressed(platform->input[GAME_KEY_F3]))
+                state->position = Vector3d(
+                    149598023000.0 + 7000000.0, 0.0, 0.0); // earth
+            if (WasPressed(platform->input[GAME_KEY_F4]))
+                state->position = Vector3d(
+                    227939200000.0 + 4000000.0, 0.0, 0.0); // mars
+            if (WasPressed(platform->input[GAME_KEY_F5]))
+                state->position = Vector3d(
+                    778570000000.0 + 80000000.0, 0.0, 0.0); // jupiter
+            if (WasPressed(platform->input[GAME_KEY_F6]))
+                state->position = Vector3d(
+                    1432041000000.0 + 70000000.0, 0.0, 0.0); // saturn
+            if (WasPressed(platform->input[GAME_KEY_F7]))
+                state->position = Vector3d(
+                    2867043000000.0 + 30000000.0, 0.0, 0.0); // uranus
+            if (WasPressed(platform->input[GAME_KEY_F8]))
+                state->position = Vector3d(
+                    4514953000000.0 + 30000000.0, 0.0, 0.0); // neptune
 
             if (direction.x != 0.0f || direction.y != 0.0f || direction.z != 0.0f) {
                 direction = Vec3_Normalize(direction);
@@ -522,9 +539,7 @@ void UpdateAndRender(Game_Platform *platform) {
     for (int i = 0; i < state->entity_count; ++i) {
         const Entity *entity = &state->entities[i];
 
-        if (entity->active && entity->type == ENTITY_MESH) {
-            const Mesh mesh = entity->mesh;
-
+        if (entity->active && entity->type == ENTITY_PLANET) {
             const Vec3d relative_position = Vec3d_Sub(entity->position, state->position);
             const Vec3 render_position = Vec3d_Cast32(relative_position);
 
@@ -541,8 +556,9 @@ void UpdateAndRender(Game_Platform *platform) {
                 )
             );
 
-            Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, mesh.vertices, mesh.vertex_count, mesh.indices,
-                                                               mesh.index_count);
+            Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, state->sphere.vertices,
+                                                               state->sphere.vertex_count, state->sphere.indices,
+                                                               state->sphere.index_count);
             if (entry) {
                 entry->mesh.transform = transform;
                 entry->mesh.pipeline_handle = entity->pipeline_handle;
@@ -555,6 +571,8 @@ void UpdateAndRender(Game_Platform *platform) {
                 Game_PushVertexUniformMat4X4(entry, entry->mesh.transform); // model
 
                 Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f); // sun_direction
+                Game_PushFragmentUniformVec4(entry, Vector4(entity->overlay_strength, entity->overlay_scroll, 0.0f,
+                                                            0.0f)); // overlay
 #if 0
                 const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
                 entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
