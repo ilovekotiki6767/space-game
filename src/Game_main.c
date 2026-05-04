@@ -153,6 +153,7 @@ typedef struct {
     EntityType type;
 
     double angular_velocity;
+    float axial_tilt;
 
     Game_PipelineHandle pipeline_handle;
     Game_TextureHandle texture_handles[4];
@@ -243,7 +244,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_MESH;
         earth->position = Vector3d(0.0, 6371000.0, 0.0);
-        earth->dim = Vector3(1.0f, 1.0f, 1.0f);
+        earth->axial_tilt = 0.4091f;
         earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
         earth->angular_velocity = (2.0 * PI) / 86400.0;
         earth->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -259,7 +260,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_MESH;
         saturn->position = Vector3d(0.0, 0.0, 0.0);
-        saturn->dim = Vector3(1.0f, 1.0f, 1.0f);
+        saturn->axial_tilt = 0.4665f;
         saturn->scale = Vector3(60268000.0f, 54364000.0f, 60268000.0f);
         saturn->angular_velocity = (2.0 * PI) / 38520.0;
         saturn->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -271,7 +272,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *rings = AddEntity(state);
         rings->type = ENTITY_MESH;
         rings->position = saturn->position;
-        rings->dim = Vector3(1.0f, 1.0f, 1.0f);
+        rings->axial_tilt = saturn->axial_tilt;
         rings->scale = Vector3(60268000.0f, 60268000.0f, 60268000.0f);
         rings->angular_velocity = saturn->angular_velocity;
         rings->mesh = LoadOBJ(platform, "assets/models/rings.obj");
@@ -285,7 +286,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *jupiter = AddEntity(state);
         jupiter->type = ENTITY_MESH;
         jupiter->position = Vector3d(0.0, 0.0, 0.0);
-        jupiter->dim = Vector3(1.0f, 1.0f, 1.0f);
+        jupiter->axial_tilt = 0.0546f;
         jupiter->scale = Vector3(71492000.0f, 66854000.0f, 71492000.0f);
         jupiter->angular_velocity = (2.0 * PI) / 35730.0;
         jupiter->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -301,7 +302,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *neptune = AddEntity(state);
         neptune->type = ENTITY_MESH;
         neptune->position = Vector3d(0.0, 0.0, 0.0);
-        neptune->dim = Vector3(1.0f, 1.0f, 1.0f);
+        neptune->axial_tilt = 0.4943f;
         neptune->scale = Vector3(24622000.0f, 24622000.0f, 24622000.0f);
         neptune->angular_velocity = (2.0 * PI) / 57996.0;
         neptune->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -316,7 +317,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *uranus = AddEntity(state);
         uranus->type = ENTITY_MESH;
         uranus->position = Vector3d(0.0, 0.0, 0.0);
-        uranus->dim = Vector3(1.0f, 1.0f, 1.0f);
+        uranus->axial_tilt = 1.7064f;
         uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
         uranus->angular_velocity = (2.0 * PI) / 62064.0;
         uranus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -331,7 +332,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *mars = AddEntity(state);
         mars->type = ENTITY_MESH;
         mars->position = Vector3d(0.0, 0.0, 0.0);
-        mars->dim = Vector3(1.0f, 1.0f, 1.0f);
+        mars->axial_tilt = 0.4396f;
         mars->scale = Vector3(3389500.0f, 3389500.0f, 3389500.0f);
         mars->angular_velocity = (2.0 * PI) / 88642.0;
         mars->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -346,7 +347,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *mercury = AddEntity(state);
         mercury->type = ENTITY_MESH;
         mercury->position = Vector3d(0.0, 0.0, 0.0);
-        mercury->dim = Vector3(1.0f, 1.0f, 1.0f);
+        mercury->axial_tilt = 0.0006f;
         mercury->scale = Vector3(2439700.0f, 2439700.0f, 2439700.0f);
         mercury->angular_velocity = (2.0 * PI) / 5067000.0;
         mercury->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -361,7 +362,7 @@ void UpdateAndRender(Game_Platform *platform) {
         Entity *venus = AddEntity(state);
         venus->type = ENTITY_MESH;
         venus->position = Vector3d(0.0, 0.0, 0.0);
-        venus->dim = Vector3(1.0f, 1.0f, 1.0f);
+        venus->axial_tilt = 3.0956f;
         venus->scale = Vector3(6051800.0f, 6051800.0f, 6051800.0f);
         venus->angular_velocity = (2.0 * PI) / 20997000.0;
         venus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
@@ -498,8 +499,11 @@ void UpdateAndRender(Game_Platform *platform) {
             const Mat4X4 transform = Matrix_Multiply(
                 Matrix_Translation(render_position),
                 Matrix_Multiply(
-                    Matrix_RotationY(rotation_angle),
-                    Matrix_Scale(entity->scale)
+                    Matrix_RotationZ(entity->axial_tilt),
+                    Matrix_Multiply(
+                        Matrix_RotationY(rotation_angle),
+                        Matrix_Scale(entity->scale)
+                    )
                 )
             );
 

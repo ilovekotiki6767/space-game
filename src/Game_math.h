@@ -198,6 +198,18 @@ static Mat4X4 Matrix_RotationY(const float angle) {
     );
 }
 
+static Mat4X4 Matrix_RotationZ(const float angle) {
+    const float cos = Cos(angle);
+    const float sin = Sin(angle);
+
+    return Matrix4X4(
+         cos, -sin,  0,  0,
+         sin,  cos,  0,  0,
+           0,    0,  1,  0,
+           0,    0,  0,  1
+    );
+}
+
 static Mat4X4 Matrix_Multiply(const Mat4X4 mat1, const Mat4X4 mat2) {
     Mat4X4 res;
 
