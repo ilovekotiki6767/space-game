@@ -463,7 +463,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, -1, 0);
 
-            const float speed = 50000000.0f * platform->delta_time;
+            const float speed = 5000000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 

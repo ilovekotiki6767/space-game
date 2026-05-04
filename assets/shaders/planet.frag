@@ -5,6 +5,7 @@
 layout (location = 0) in vec3 input_world_normal;
 layout (location = 1) in vec4 input_color;
 layout (location = 2) in vec2 input_uv;
+layout (location = 3) in vec3 input_world_position;
 
 layout (location = 0) out vec4 output_color;
 
@@ -28,16 +29,20 @@ void main() {
 
     vec3 N = normalize(input_world_normal);
     vec3 L = normalize(u.sun_direction.xyz);
+    vec3 V = normalize(-input_world_position);
 
     float n_dot_l = max(dot(N, L), 0.0);
+    float n_dot_v = max(dot(N, V), 0.0);
 
     float threshold = bayer4x4(ivec2(gl_FragCoord.xy)) - 0.5;
     float lit = n_dot_l + threshold * /* the width of the dithered band around n_dot_l = 0 */ 0.25;
     lit = floor(clamp(lit, 0.0, 1.0) + 0.5);
 
+    float limb = pow(n_dot_v, 0.5);
+
     // ambient = 0.0
     // light = 0.0 + (1.0 - 0.0) * n_dot_l
     // = 1.0 * n_dot_l
     // = n_dot_l
-    output_color = vec4(albedo.rgb * input_color.rgb * lit, albedo.a * input_color.a);
+    output_color = vec4(albedo.rgb * input_color.rgb * lit * limb, albedo.a * input_color.a);
 }
