@@ -1,55 +1,43 @@
 #version 450
 
-layout(location = 0) in vec2 vTexCoord;
-layout(location = 1) in vec3 vObjectPos;
+layout (set = 3, binding = 0) uniform fragment_uniforms {
+    /// normalized direction from the planet to the origin
+    /// `w` is unused
+    vec4 sun;
+    /// parent planet
+    /// `xyz` is the center in the world space and `w` is the radius
+    vec4 planet;
+} u;
 
-layout(set = 2, binding = 0) uniform sampler2D uRingTexture;
+layout (set = 2, binding = 0) uniform sampler2D u_diffuse;
 
-layout(set = 3, binding = 0) uniform FragUBO {
-    float uRotationAngle;
-};
+layout (location = 1) in vec4 input_color;
+layout (location = 2) in vec2 input_uv;
+layout (location = 3) in vec3 input_world_position;
 
-layout(location = 0) out vec4 FragColor;
+layout (location = 0) out vec4 output_color;
 
 void main() {
-    vec4 color = texture(uRingTexture, vTexCoord);
-    if (color.a < 0.01) discard;
+    vec4 color = texture(u_diffuse, input_uv);
 
-    vec3 sunWorld = normalize(vec3(1.0, 0.15, 0.3));
-
-    float ca = cos(-uRotationAngle);
-    float sa = sin(-uRotationAngle);
-    vec3 sunObj = vec3(
-    sunWorld.x * ca + sunWorld.z * sa,
-    sunWorld.y,
-    -sunWorld.x * sa + sunWorld.z * ca
-    );
-
-    const float Ry = 54364000.0 / 60268000.0;
-    vec3 invR = vec3(1.0, 1.0 / Ry, 1.0);
-
-    vec3 P = vObjectPos * invR;
-    vec3 D = sunObj    * invR;
-
-    float a   = dot(D, D);
-    float b2  = dot(P, D);         // half-b
-    float c   = dot(P, P) - 1.0;
-    float disc = b2 * b2 - a * c;
-
-    float shadow = 1.0;
-    float t_closest = -b2 / a;
-    if (t_closest > 0.0) {
-        float d_center = sqrt(max(0.0, 1.0 - disc / a));
-
-        float d_surface = d_center - 1.0;
-
-        float sunAngularRadius = 0.03;
-
-        float penumbraSize = t_closest * sunAngularRadius;
-        float litFactor = smoothstep(-penumbraSize, penumbraSize, d_surface);
-
-        shadow = mix(0.08, 1.0, litFactor);
+    if (color.a < 0.1) {
+        discard;
     }
 
-    FragColor = vec4(color.rgb * shadow, color.a);
+    vec3 P = input_world_position;
+    vec3 L = normalize(u.sun.xyz);
+    vec3 C = u.planet.xyz;
+    float R = u.planet.w;
+
+    vec3 oc = P - C;
+    float b = dot(oc, L);
+    float c = dot(oc, oc) - R * R;
+    float disc = b * b - c;
+
+    float lit = 1.0;
+    if (disc >= 0.0 && (-b + sqrt(disc)) > 0.0) {
+        lit = 0.0;
+    }
+
+    output_color = vec4(color.rgb * lit, color.a) * input_color;
 }

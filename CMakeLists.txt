@@ -24,16 +24,11 @@ target_include_directories(Platform PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_dependencies(Platform Game)
 
 set(SHADER_SOURCES
-        assets/shaders/earth.frag
-        assets/shaders/earth.vert
-        assets/shaders/planet.frag
-        assets/shaders/planet.vert
-        assets/shaders/rings.frag
-        assets/shaders/rings.vert
-        assets/shaders/jupiter.frag
-        assets/shaders/jupiter.vert
-        assets/shaders/venus.frag
-        assets/shaders/venus.vert
+    assets/shaders/planet.frag assets/shaders/planet.vert
+    assets/shaders/rings.frag
+    # postprocessing
+    assets/shaders/postprocess/fullscreen.vert
+        assets/shaders/postprocess/quantize.frag
 )
 
 set(SHADER_OUTPUTS "")

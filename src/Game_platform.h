@@ -151,7 +151,8 @@ typedef enum {
     GAME_KEY_ESCAPE, GAME_KEY_SPACE, GAME_KEY_LEFT_CTRL,
     GAME_KEY_MOUSE_LEFT, GAME_KEY_MOUSE_RIGHT,
 
-    GAME_KEY_F11,
+    GAME_KEY_F1, GAME_KEY_F2, GAME_KEY_F3, GAME_KEY_F4, GAME_KEY_F5, GAME_KEY_F6, GAME_KEY_F7, GAME_KEY_F8, GAME_KEY_F9,
+    GAME_KEY_F10, GAME_KEY_F11,
 
     GAME_KEY_COUNT,
 } Game_Key;
@@ -166,6 +167,10 @@ typedef enum {
     GAME_BLEND_MODE_ALPHA,
 } Game_BlendMode;
 
+typedef int Game_PipelineFlags;
+/// gets rid of vertex input, depth and MSAA
+#define GAME_PIPELINE_FLAGS_POSTPROCESS (1u << 0)
+
 typedef struct {
     MemoryArena permanent_memory;
     MemoryArena transient_memory;
@@ -174,10 +179,10 @@ typedef struct {
 
     Game_ButtonState input[GAME_KEY_COUNT];
 
-    Vertex transient_vertices[16384];
+    Vertex transient_vertices[16384 * 4];
     int transient_vertex_count;
 
-    unsigned short transient_indices[32768];
+    unsigned short transient_indices[32768 * 4];
     int transient_index_count;
 
     Game_RenderEntry render_entries[1024];
@@ -204,7 +209,7 @@ typedef struct {
     Game_TextureHandle (*LoadImageFile)(const char *path);
 
     Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path,
-                                          Game_CullMode cull_mode, Game_BlendMode blend_mode);
+                                          Game_CullMode cull_mode, Game_BlendMode blend_mode, Game_PipelineFlags flags);
 
     Game_TextureHandle (*CreateRenderTarget)(Vec2 size);
 
@@ -215,18 +220,23 @@ typedef struct {
 
 // Functions
 
-static void Game_PushFragmentUniformFloat(Game_RenderEntry *entry, const float value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value;
+static void Game_PushVertexUniformMat4X4(Game_RenderEntry *entry, const Mat4X4 matrix) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            entry->mesh.vertex_uniforms[entry->mesh.vertex_uniform_count++] = matrix.m[i][j];
+        }
+    }
 }
 
-static void Game_PushFragmentUniformBool(Game_RenderEntry *entry, const Bool value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = (float)value;
+static void Game_PushFragmentUniformVec4(Game_RenderEntry *entry, const Vec4 vector) {
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.x;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.y;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.z;
+    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = vector.w;
 }
 
-static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 value) {
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.x;
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.y;
-    entry->mesh.fragment_uniforms[entry->mesh.fragment_uniform_count++] = value.z;
+static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 vector, const float w) {
+    Game_PushFragmentUniformVec4(entry, Vector4(vector.x, vector.y, vector.z, w));
 }
 
 static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const Vertex *vertices,

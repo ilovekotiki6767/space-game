@@ -1,94 +1,85 @@
 #version 450
 
-layout(location = 0) in vec2 vTexCoord;
-layout(location = 1) in vec3 vNormal;
-layout(location = 2) in vec3 vObjectPos;
+#include "dither.glsl"
 
-layout(set = 2, binding = 0) uniform sampler2D uTexture;
+layout (set = 3, binding = 0) uniform fragment_uniforms {
+    /// normalized direction from the planet to the origin
+    /// `w` is unused
+    vec4 sun_direction;
+    /// `x` is strength, `y` is the scroll speed and everything else is unused
+    vec4 overlay;
+    /// `xyz` is atmosphere color and `w` is intensity
+    vec4 atmosphere;
+    /// `x` is specular strength, `y` is shininess
+    /// `z` is normalized tint-to-white factor and `w` is unused
+    vec4 specular;
+} u;
 
-layout(set = 3, binding = 0) uniform FragUBO {
-    bool uHasAtmosphere;
-    float uAtmosphereIntensity;
-    float uAtmosphereColorR;
-    float uAtmosphereColorG;
-    float uAtmosphereColorB;
-    float uRotAngle;
-    float uAxialTilt;
-    float uCamX;
-    float uCamY;
-    float uCamZ;
-    float uScaleX;
-    float uScaleY;
-    float uScaleZ;
-};
+layout (location = 0) in vec3 input_world_normal;
+layout (location = 1) in vec4 input_color;
+layout (location = 2) in vec2 input_uv;
+layout (location = 3) in vec3 input_world_position;
 
-layout(location = 0) out vec4 FragColor;
+layout (location = 0) out vec4 output_color;
 
-float BayerDither(vec2 p) {
-    int x = int(mod(p.x, 4.0));
-    int y = int(mod(p.y, 4.0));
-    int index = x + y * 4;
-    float m[16] = float[16](
-        0.0,  8.0,  2.0, 10.0,
-       12.0,  4.0, 14.0,  6.0,
-        3.0, 11.0,  1.0,  9.0,
-       15.0,  7.0, 13.0,  5.0
-    );
-    return m[index] / 16.0;
-}
-
-vec3 ToObjectSpace(vec3 v, float angle) {
-    float s = sin(-angle);
-    float c = cos(-angle);
-    return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
-}
-
-vec3 InverseRotZ(vec3 v, float angle) {
-    float s = sin(-angle);
-    float c = cos(-angle);
-    return vec3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
-}
+layout (set = 2, binding = 0) uniform sampler2D u_diffuse;
+layout (set = 2, binding = 1) uniform sampler2D u_overlay;
+layout (set = 2, binding = 2) uniform sampler2D u_specular;
+layout (set = 2, binding = 3) uniform sampler2D u_tex3; // unused
 
 void main() {
-    vec3 sunDir = ToObjectSpace(normalize(vec3(0.5, 1.0, 0.3)), uRotAngle);
-    vec3 N      = normalize(vNormal);
-    float NdotL = dot(N, sunDir);
+    vec4 albedo = texture(u_diffuse, input_uv);
 
-    vec3 camRel = vec3(uCamX, uCamY, uCamZ);
-    vec3 camObj = ToObjectSpace(InverseRotZ(camRel, uAxialTilt), uRotAngle);
+    float coverage = 0.0;
 
-    vec3 fragObjPos = vObjectPos * vec3(uScaleX, uScaleY, uScaleZ);
-    vec3 V = normalize(camObj - fragObjPos);
+    if (u.overlay.x > 0.0) {
+        vec4 overlay = texture(u_overlay,
+                               vec2(input_uv.x + u.sun_direction.w * u.overlay.y, input_uv.y));
 
-    float NdotV = max(dot(N, V), 0.0);
+        float mask = (overlay.a > 0.0)
+        ? overlay.a
+        : max(max(overlay.r, overlay.g), overlay.b);
 
-    vec4  texColor = texture(uTexture, vTexCoord);
-    float dither   = BayerDither(gl_FragCoord.xy);
-
-    float shadowTransition = smoothstep(-0.2, 0.2, NdotL + (dither - 0.5) * 0.5);
-
-    vec3 litColor = texColor.rgb * 1.2;
-    vec3 color    = mix(vec3(0.0), litColor, shadowTransition);
-
-    float limbDarkening = pow(NdotV, 1.0);
-
-    color *= mix(0.2, 1.0, limbDarkening);
-
-    if (uHasAtmosphere) {
-        float rim = 1.0 - NdotV;
-
-        rim = pow(rim, 3.0);
-
-        float sunWrap = smoothstep(-0.3, 0.4, dot(N, sunDir));
-        vec3 atmosphereColor = vec3(uAtmosphereColorR, uAtmosphereColorG, uAtmosphereColorB);
-
-        vec3 rimGlow = atmosphereColor * rim * uAtmosphereIntensity * sunWrap;
-
-        color += rimGlow;
+        coverage = mask * u.overlay.x;
+        albedo.rgb = mix(albedo.rgb, overlay.rgb, coverage);
     }
 
-    color += (dither - 0.5) / 32.0;
-    color  = floor(color * 32.0) / 32.0;
+    vec3 N = normalize(input_world_normal);
+    vec3 L = normalize(u.sun_direction.xyz);
+    vec3 V = normalize(-input_world_position);
+    vec3 H = normalize(L + V);
 
-    FragColor = vec4(color, 1.0);
+    float n_dot_l = max(dot(N, L), 0.0);
+    float n_dot_v = max(dot(N, V), 0.0);
+    float n_dot_h = max(dot(N, H), 0.0);
+
+    float threshold = bayer8x8(ivec2(gl_FragCoord.xy)) - 0.5;
+    float lit = n_dot_l + threshold * /* the width of the dithered band around n_dot_l = 0 */ 0.25;
+    lit = floor(clamp(lit, 0.0, 1.0) + 0.5);
+
+    float limb = pow(n_dot_v, 0.5);
+
+    vec3 surface = albedo.rgb * input_color.rgb * lit * limb;
+
+    vec3 specular = vec3(0.0);
+    if (u.specular.x > 0.0) {
+        float mask = texture(u_specular, input_uv).r;
+        mask *= (1.0 - coverage);
+
+        float shininess = max(u.specular.y, 1.0);
+        float terminator = pow(n_dot_h, shininess) * n_dot_l;
+
+        vec3 color = mix(albedo.rgb, vec3(1.0), clamp(u.specular.z, 0.0, 1.0));
+
+        specular = color * terminator * mask * u.specular.x * lit;
+    }
+
+    vec3 atmosphere = vec3(0.0);
+    if (u.atmosphere.w > 0.0) {
+        atmosphere = u.atmosphere.rgb * u.atmosphere.w
+        * pow(1.0 - n_dot_v, 2.0)
+        * lit;
+    }
+
+    output_color = vec4(surface + specular + atmosphere, albedo.a * input_color.a);
 }

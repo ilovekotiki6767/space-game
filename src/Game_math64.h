@@ -1,5 +1,6 @@
 #ifndef GAMING_GAME_MATH64_H
 #define GAMING_GAME_MATH64_H
+#include "Game_math.h"
 
 typedef struct {
     double x, y, z;
@@ -27,6 +28,14 @@ static Vec3d Vec3d_Scale(const Vec3d vec, const float scale) {
 
 static Vec3d Vec3d_Sub(const Vec3d vec1, const Vec3d vec2) {
     return Vector3d(vec1.x - vec2.x, vec1.y - vec2.y, vec1.z - vec2.z);
+}
+
+static Vec3 Vec3d_DirectionToOrigin(const Vec3d from) {
+    return Vec3_Normalize(Vec3_Negate(Vec3d_Cast32(from)));
+}
+
+static double Vec3d_Magnitude(const Vec3d vec) {
+    return Sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
 
 #endif //GAMING_GAME_MATH64_H

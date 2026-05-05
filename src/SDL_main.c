@@ -218,8 +218,10 @@ static void FlushRenderEntries(const Game_Platform *platform, SDL_GPUCommandBuff
                     }
                     SDL_BindGPUFragmentSamplers(render_pass, 0, sampler_bindings, 4);
 
-                    Mat4X4 mvp = Matrix_Multiply(platform->view_projection, mesh->transform);
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(Mat4X4));
+                    if (mesh->vertex_uniform_count > 0) {
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, mesh->vertex_uniforms,
+                                                     (Uint32) (mesh->vertex_uniform_count * sizeof(float)));
+                    }
 
                     if (mesh->fragment_uniform_count > 0) {
                         SDL_PushGPUFragmentUniformData(command_buffer, 0,
@@ -254,28 +256,24 @@ static void FlushRenderEntries(const Game_Platform *platform, SDL_GPUCommandBuff
                     SDL_GPUTexture *swapchain_texture;
                     if (SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, NULL, NULL) &&
                         swapchain_texture) {
-                        color_target_info.texture = msaa_texture;
-                        color_target_info.resolve_texture = swapchain_texture;
-                        color_target_info.store_op = SDL_GPU_STOREOP_RESOLVE;
-                        // attach depth buffer to the main pass
-                        depth_stencil_target_info.texture = depth_texture;
-                        depth_stencil_target_info.load_op = entry->set_target.clear
-                                                                ? SDL_GPU_LOADOP_CLEAR
-                                                                : SDL_GPU_LOADOP_LOAD;
-                        depth_stencil_target_info.store_op = SDL_GPU_STOREOP_DONT_CARE;
-                        depth_stencil_target_info.clear_depth = 0.0f;
-                        depth_stencil_target_info_ptr = &depth_stencil_target_info;
-                    } else {
-                        continue;
+                        color_target_info.texture = swapchain_texture;
                     }
                 } else {
                     const int texture = (int) entry->set_target.color_target - 1;
 
-                    if (texture >= 0 && texture < texture_count) {
-                        color_target_info.texture = textures[texture];
-                    } else {
+                    if (texture < 0 || texture >= texture_count) {
                         continue;
                     }
+
+                    color_target_info.texture = textures[texture];
+
+                    depth_stencil_target_info.texture = depth_texture;
+                    depth_stencil_target_info.load_op = entry->set_target.clear
+                                                            ? SDL_GPU_LOADOP_CLEAR
+                                                            : SDL_GPU_LOADOP_LOAD;
+                    depth_stencil_target_info.store_op = SDL_GPU_STOREOP_DONT_CARE;
+                    depth_stencil_target_info.clear_depth = 0.0f;
+                    depth_stencil_target_info_ptr = &depth_stencil_target_info;
                 }
 
                 render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target_info, 1,
@@ -322,6 +320,16 @@ static Game_Key SDLKeyToGameKey(const SDL_Scancode scancode) {
         case SDL_SCANCODE_ESCAPE: return GAME_KEY_ESCAPE;
         case SDL_SCANCODE_SPACE: return GAME_KEY_SPACE;
         case SDL_SCANCODE_LCTRL: return GAME_KEY_LEFT_CTRL;
+        case SDL_SCANCODE_F1: return GAME_KEY_F1;
+        case SDL_SCANCODE_F2: return GAME_KEY_F2;
+        case SDL_SCANCODE_F3: return GAME_KEY_F3;
+        case SDL_SCANCODE_F4: return GAME_KEY_F4;
+        case SDL_SCANCODE_F5: return GAME_KEY_F5;
+        case SDL_SCANCODE_F6: return GAME_KEY_F6;
+        case SDL_SCANCODE_F7: return GAME_KEY_F7;
+        case SDL_SCANCODE_F8: return GAME_KEY_F8;
+        case SDL_SCANCODE_F9: return GAME_KEY_F9;
+        case SDL_SCANCODE_F10: return GAME_KEY_F10;
         case SDL_SCANCODE_F11: return GAME_KEY_F11;
 
         default: return GAME_KEY_NONE;
@@ -494,7 +502,8 @@ static Game_FileResult Platform_ReadEntireFile(const char *path) {
 }
 
 static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path, const char *fragment_spirv_path,
-                                                   const Game_CullMode cull_mode, const Game_BlendMode blend_mode) {
+                                                   const Game_CullMode cull_mode, const Game_BlendMode blend_mode,
+                                                   Game_PipelineFlags flags) {
     if (pipeline_count >= ArrayCount(pipelines)) {
         return 0;
     }
@@ -508,16 +517,27 @@ static Game_PipelineHandle Platform_CreatePipeline(const char *vertex_spirv_path
 
     PipelineBuilder builder = BeginPipeline();
     PipelineSetShaders(&builder, vertex_shader, fragment_shader);
-    PipelineSetCullMode(&builder, cull_mode == GAME_CULL_MODE_BACK ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE);
-    PipelineSetVertexInput(&builder, &vertex_buffer_description, 1, vertex_attributes, 4);
-    if (blend_mode == GAME_BLEND_MODE_ALPHA) {
-        builder.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
-        builder.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-        builder.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        builder.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    if (flags & GAME_PIPELINE_FLAGS_POSTPROCESS) {
+        builder.multisample.sample_count = SDL_GPU_SAMPLECOUNT_1;
+        builder.has_depth_target = false;
+        builder.depth_stencil.enable_depth_test = false;
+        builder.depth_stencil.enable_depth_write = false;
+        builder.color_format = swapchain_texture_format;
+    } else {
+        PipelineSetVertexInput(&builder, &vertex_buffer_description, 1, vertex_attributes, 4);
+        PipelineSetTargetFormat(&builder, SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
+                                SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
+        builder.multisample.sample_count = SDL_GPU_SAMPLECOUNT_1;
+
+        if (blend_mode == GAME_BLEND_MODE_ALPHA) {
+            builder.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+            builder.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+            builder.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+            builder.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        }
+
+        PipelineSetCullMode(&builder, cull_mode == GAME_CULL_MODE_BACK ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE);
     }
-    // TODO: check for support
-    PipelineSetTargetFormat(&builder, swapchain_texture_format, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
 
     SDL_GPUGraphicsPipeline *pipeline = EndPipeline(&builder);
     SDL_ReleaseGPUShader(device, vertex_shader);
@@ -816,11 +836,9 @@ int main(void) {
                                                      .type = SDL_GPU_TEXTURETYPE_2D,
                                                      .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
                                                      .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-                                                     .width = width,
-                                                     .height = height,
-                                                     .layer_count_or_depth = 1,
-                                                     .num_levels = 1,
-                                                     .sample_count = sample_count,
+                                                     .width = width, .height = height,
+                                                     .layer_count_or_depth = 1, .num_levels = 1,
+                                                     .sample_count = SDL_GPU_SAMPLECOUNT_1,
                                                  });
 
             msaa_texture = SDL_CreateGPUTexture(device, &(SDL_GPUTextureCreateInfo){
