@@ -315,9 +315,7 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->axial_tilt = 0.4091f;
         earth->scale = Vector3(6371000.0f, 6371000.0f, 6371000.0f);
         earth->angular_velocity = (2.0 * PI) / 86400.0;
-        earth->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                          "assets/shaders/planet.frag.spv", GAME_CULL_MODE_BACK,
-                                                          GAME_BLEND_MODE_OPAQUE, 0);
+        earth->pipeline_handle = state->planet_pipeline_handle;
         earth->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/earth.jpg");
         earth->texture_handles[TEXTURE_INDEX_OVERLAY] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
         earth->texture_handles[TEXTURE_INDEX_SPECULAR_MAP] = platform->
