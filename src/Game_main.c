@@ -524,7 +524,7 @@ void UpdateAndRender(Game_Platform *platform) {
             state->fov_target -= platform->mouse_wheel_delta * 0.05f;
             state->fov_target = Clamp(state->fov_target, 0.1f, PI / 3.0f);
 
-            state->fov += (state->fov_target - state->fov) * 3.0f * platform->delta_time;
+            state->fov += (state->fov_target - state->fov) * 20.0f * platform->delta_time;
 
             platform->view_projection = Matrix_Multiply(
                 Matrix_Perspective(state->fov, 1280.0f / 720.0f, 1.0f, 1000000000000.0f),
