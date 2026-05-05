@@ -235,6 +235,9 @@ typedef struct {
 
     Game_PipelineHandle planet_pipeline_handle;
     Game_PipelineHandle ring_pipeline_handle;
+    // postprocessing
+    Game_PipelineHandle quantize_pipeline_handle;
+    Game_TextureHandle offscreen_render_target;
 
     float pitch, yaw;
     Bool grounded;
@@ -279,11 +282,18 @@ void UpdateAndRender(Game_Platform *platform) {
         state->planet_pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                                  "assets/shaders/planet.frag.spv",
                                                                  GAME_CULL_MODE_BACK,
-                                                                 GAME_BLEND_MODE_OPAQUE);
+                                                                 GAME_BLEND_MODE_OPAQUE, 0);
         state->ring_pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                                "assets/shaders/rings.frag.spv",
                                                                GAME_CULL_MODE_NONE,
-                                                               GAME_BLEND_MODE_ALPHA);
+                                                               GAME_BLEND_MODE_ALPHA, 0);
+
+        state->offscreen_render_target = platform->CreateRenderTarget(Vector2(platform->width, platform->height));
+        state->quantize_pipeline_handle = platform->CreatePipeline("assets/shaders/postprocess/fullscreen.vert.spv",
+                                                                  "assets/shaders/postprocess/quantize.frag.spv",
+                                                                  GAME_CULL_MODE_NONE,
+                                                                  GAME_BLEND_MODE_OPAQUE,
+                                                                  GAME_PIPELINE_FLAGS_POSTPROCESS);
 
 #if 0
         Entity *mercury = AddEntity(state);
@@ -299,7 +309,6 @@ void UpdateAndRender(Game_Platform *platform) {
         mercury->texture_handles[0] = platform->LoadImageFile("assets/images/mercury.jpg");
 #endif
 
-#if 0
         Entity *earth = AddEntity(state);
         earth->type = ENTITY_PLANET;
         earth->position = Vector3d(1.0, 1.0, 1.0);
@@ -308,10 +317,11 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->angular_velocity = (2.0 * PI) / 86400.0;
         earth->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                           "assets/shaders/planet.frag.spv", GAME_CULL_MODE_BACK,
-                                                          GAME_BLEND_MODE_OPAQUE);
-        earth->texture_handles[0] = platform->LoadImageFile("assets/images/earth.jpg");
-        earth->texture_handles[1] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
-        earth->texture_handles[2] = platform->LoadImageFile("assets/images/earth_specular.tif");
+                                                          GAME_BLEND_MODE_OPAQUE, 0);
+        earth->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/earth.jpg");
+        earth->texture_handles[TEXTURE_INDEX_OVERLAY] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
+        earth->texture_handles[TEXTURE_INDEX_SPECULAR_MAP] = platform->
+                LoadImageFile("assets/images/earth_specular.tif");
 
         earth->overlay_strength = 0.6f;
         earth->overlay_scroll = 0.002f;
@@ -322,7 +332,6 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->specular_strength = 0.8f;
         earth->specular_shininess = 64.0f;
         earth->specular_whiteness = 0.9f;
-#endif
 
 #if 0
 
@@ -385,6 +394,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
 #endif
 
+#if 0
         // ------------------------------------------
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_PLANET;
@@ -402,45 +412,44 @@ void UpdateAndRender(Game_Platform *platform) {
         saturn->ring_inner_radius = 74500000.0f;
         saturn->ring_outer_radius = 140180000.0f;
         saturn->ring_normal = Vector3(Sin(saturn->axial_tilt), Cos(saturn->axial_tilt), 0.0f);
+#endif
+
 #if 0
 
         // ------------------------------------------
         Entity *uranus = AddEntity(state);
         uranus->type = ENTITY_PLANET;
-        uranus->position = Vector3d(2867043000000.0, 0.0, 0.0);
+        uranus->position = Vector3d(1.0, 1.0, 1.0);
         uranus->axial_tilt = 1.7064f;
         uranus->scale = Vector3(25362000.0f, 25362000.0f, 25362000.0f);
         uranus->angular_velocity = (2.0 * PI) / 62064.0;
-        uranus->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        uranus->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                           "assets/shaders/planet.frag.spv",
-                                                           GAME_CULL_MODE_BACK,
-                                                           GAME_BLEND_MODE_OPAQUE);
-        uranus->texture_handles[0] = platform->LoadImageFile("assets/images/uranus.jpg");
-        uranus->has_atmosphere = True;
+        uranus->pipeline_handle = state->planet_pipeline_handle;
+        uranus->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/uranus.jpg");
+
         uranus->atmosphere_color = Vector3(0.60f, 0.85f, 0.90f);
         uranus->atmosphere_intensity = 0.7f;
 
+#endif
+
+#if 0
         // ------------------------------------------
         Entity *neptune = AddEntity(state);
         neptune->type = ENTITY_PLANET;
-        neptune->position = Vector3d(4514953000000.0, 0.0, 0.0);
+        neptune->position = Vector3d(1.0, 1.0, 1.0);
         neptune->axial_tilt = 0.4943f;
         neptune->scale = Vector3(24622000.0f, 24622000.0f, 24622000.0f);
         neptune->angular_velocity = (2.0 * PI) / 57996.0;
-        neptune->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
         neptune->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
                                                             "assets/shaders/planet.frag.spv",
                                                             GAME_CULL_MODE_BACK,
                                                             GAME_BLEND_MODE_OPAQUE);
-        neptune->texture_handles[0] = platform->LoadImageFile("assets/images/neptune.jpg");
+        neptune->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/neptune.jpg");
 
-        neptune->has_atmosphere = True;
         neptune->atmosphere_color = Vector3(0.20f, 0.40f, 0.90f);
         neptune->atmosphere_intensity = 0.8f;
 #endif
 
-        state->position = Vector3d(-40000000.0, -40000000.0, -40000000.0);
+        state->position = Vector3d(-30000000.0, -30000000.0, -30000000.0);
         state->yaw = -3.0f * (PI / 4.0f);
         state->pitch = 0.6155f;
         state->velocity = Vector3d(0.0, 0.0, 0.0);
@@ -575,7 +584,7 @@ void UpdateAndRender(Game_Platform *platform) {
         break;
     }
 
-    Game_PushSetTarget(platform, 0, True, BLACK);
+    Game_PushSetTarget(platform, state->offscreen_render_target, True, BLACK);
 
     for (int i = 0; i < state->entity_count; ++i) {
         const Entity *entity = &state->entities[i];
@@ -653,15 +662,10 @@ void UpdateAndRender(Game_Platform *platform) {
 
                 default: break;
             }
-#if 0
-            const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
-            entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
-            entry->mesh.fragment_uniforms[1] = d.x;
-            entry->mesh.fragment_uniforms[2] = d.y;
-            entry->mesh.fragment_uniforms[3] = d.z;
-            entry->mesh.fragment_uniforms[4] = (float) (platform->elapsed_time * entity->angular_velocity);
-            entry->mesh.fragment_uniform_count = 5;
-#endif
         }
     }
+
+    Game_PushSetTarget(platform, 0, False, BLACK);
+    Game_PushFullscreenQuad(platform, state->quantize_pipeline_handle,
+                            (Game_TextureHandle[]){state->offscreen_render_target}, 1);
 }

@@ -26,6 +26,9 @@ add_dependencies(Platform Game)
 set(SHADER_SOURCES
     assets/shaders/planet.frag assets/shaders/planet.vert
     assets/shaders/rings.frag
+    # postprocessing
+    assets/shaders/postprocess/fullscreen.vert
+        assets/shaders/postprocess/quantize.frag
 )
 
 set(SHADER_OUTPUTS "")

@@ -167,6 +167,10 @@ typedef enum {
     GAME_BLEND_MODE_ALPHA,
 } Game_BlendMode;
 
+typedef int Game_PipelineFlags;
+/// gets rid of vertex input, depth and MSAA
+#define GAME_PIPELINE_FLAGS_POSTPROCESS (1u << 0)
+
 typedef struct {
     MemoryArena permanent_memory;
     MemoryArena transient_memory;
@@ -205,7 +209,7 @@ typedef struct {
     Game_TextureHandle (*LoadImageFile)(const char *path);
 
     Game_PipelineHandle (*CreatePipeline)(const char *vertex_spirv_path, const char *fragment_spirv_path,
-                                          Game_CullMode cull_mode, Game_BlendMode blend_mode);
+                                          Game_CullMode cull_mode, Game_BlendMode blend_mode, Game_PipelineFlags flags);
 
     Game_TextureHandle (*CreateRenderTarget)(Vec2 size);
 

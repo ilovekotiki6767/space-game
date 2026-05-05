@@ -136,6 +136,10 @@ typedef struct {
     float y;
 } Vec2;
 
+static Vec2 Vector2(const float x, const float y) {
+    return (Vec2){.x = x, .y = y};
+}
+
 /**
  * The matrix is stored in column major format
  **/
