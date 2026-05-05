@@ -736,6 +736,7 @@ int main(void) {
         }
 
         platform.mouse_delta_x = 0.0f, platform.mouse_delta_y = 0.0f;
+        platform.mouse_wheel_delta = 0.0f;
 
         SDL_Event event;
 
@@ -801,6 +802,10 @@ int main(void) {
                     platform.mouse_delta_x += event.motion.xrel, platform.mouse_delta_y += event.motion.yrel;
                 }
                 break;
+
+                case SDL_EVENT_MOUSE_WHEEL: {
+                    platform.mouse_wheel_delta += event.wheel.y;
+                } break;
 
                 default: break;
             }

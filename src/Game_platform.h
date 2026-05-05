@@ -197,6 +197,7 @@ typedef struct {
 
     Bool mouse_locked;
     float mouse_delta_x, mouse_delta_y;
+    float mouse_wheel_delta;
 
     float width, height;
     Mat4X4 view_projection;

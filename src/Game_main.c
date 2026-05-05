@@ -233,6 +233,10 @@ typedef struct {
     Mesh sphere;
     Mesh annulus;
 
+    // gameplay
+    float fov;
+    float fov_target;
+
     Game_PipelineHandle planet_pipeline_handle;
     Game_PipelineHandle ring_pipeline_handle;
     // postprocessing
@@ -332,7 +336,8 @@ void UpdateAndRender(Game_Platform *platform) {
         earth->pipeline_handle = state->planet_pipeline_handle;
         earth->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/earth.jpg");
         earth->texture_handles[TEXTURE_INDEX_OVERLAY] = platform->LoadImageFile("assets/images/earth_clouds.jpg");
-        earth->texture_handles[TEXTURE_INDEX_SPECULAR_MAP] = platform->LoadImageFile("assets/images/earth_specular.tif");
+        earth->texture_handles[TEXTURE_INDEX_SPECULAR_MAP] = platform->
+                LoadImageFile("assets/images/earth_specular.tif");
 
         earth->overlay_strength = 0.6f;
         earth->overlay_scroll = 0.002f;
@@ -411,6 +416,9 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->atmosphere_color = Vector3(0.20f, 0.40f, 0.90f);
         neptune->atmosphere_intensity = 0.8f;
 
+        state->fov = PI / 3.0f;
+        state->fov_target = PI / 3.0f;
+
         state->position = Vector3d(-30000000.0, -30000000.0, -30000000.0);
         state->yaw = -3.0f * (PI / 4.0f);
         state->pitch = 0.6155f;
@@ -430,8 +438,9 @@ void UpdateAndRender(Game_Platform *platform) {
             platform->mouse_locked = False;
         }
 
-        state->yaw += platform->mouse_delta_x * 0.0015f;
-        state->pitch += platform->mouse_delta_y * 0.0015f;
+        const float sensitivity = (state->fov / (PI / 3.0f)) * 0.0015f;
+        state->yaw += platform->mouse_delta_x * sensitivity;
+        state->pitch += platform->mouse_delta_y * sensitivity;
 
         state->pitch = Clamp(state->pitch, -(PI / 2.0f - 0.1f), PI / 2.0f - 0.1f);
     }
@@ -512,8 +521,13 @@ void UpdateAndRender(Game_Platform *platform) {
                 state->position = Vec3d_Add(state->position, Vec3d_Scale(Vec3_Cast64(direction), speed));
             }
 
+            state->fov_target -= platform->mouse_wheel_delta * 0.05f;
+            state->fov_target = Clamp(state->fov_target, 0.1f, PI / 3.0f);
+
+            state->fov += (state->fov_target - state->fov) * 3.0f * platform->delta_time;
+
             platform->view_projection = Matrix_Multiply(
-                Matrix_Perspective(PI / 3.0f, 1280.0f / 720.0f, 1.0f, 1000000000000.0f),
+                Matrix_Perspective(state->fov, 1280.0f / 720.0f, 1.0f, 1000000000000.0f),
                 Matrix_LookAt(Vector3(0, 0, 0), forward, Vector3(0, 1, 0))
             );
         }
