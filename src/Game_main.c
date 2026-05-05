@@ -148,6 +148,13 @@ typedef enum {
     ENTITY_PLANET,
 } EntityType;
 
+enum {
+    TEXTURE_INDEX_SURFACE,
+    TEXTURE_INDEX_OVERLAY,
+    TEXTURE_INDEX_SPECULAR_MAP,
+    TEXTURE_INDEX_RING_TEXTURE,
+};
+
 typedef struct {
     Bool active;
     EntityType type;
@@ -165,11 +172,19 @@ typedef struct {
     float specular_shininess;
     float specular_whiteness;
 
+    /// D ring inner edge
+    float ring_inner_radius;
+    /// F ring outer edge
+    float ring_outer_radius;
+    /// derived from the axial tilt
+    Vec3 ring_normal;
+
     Game_PipelineHandle pipeline_handle;
     /// for planets:
     /// * 1 -- the surface texture
     /// * 2 -- additional overlay which will be mixed with the surface, for example venus' atmosphere or earth' clouds
     /// * 3 -- specular map
+    /// * 4 -- ring texture, if any
     Game_TextureHandle texture_handles[4];
     Vec3d position;
     Vec3 scale;
@@ -216,6 +231,10 @@ typedef struct {
     Vec3d velocity;
 
     Mesh sphere;
+    Mesh annulus;
+
+    Game_PipelineHandle planet_pipeline_handle;
+    Game_PipelineHandle ring_pipeline_handle;
 
     float pitch, yaw;
     Bool grounded;
@@ -255,6 +274,16 @@ void UpdateAndRender(Game_Platform *platform) {
 #endif
 
         state->sphere = LoadOBJ(platform, "assets/models/sphere.obj");
+        state->annulus = LoadOBJ(platform, "assets/models/annulus.obj");
+
+        state->planet_pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                                 "assets/shaders/planet.frag.spv",
+                                                                 GAME_CULL_MODE_BACK,
+                                                                 GAME_BLEND_MODE_OPAQUE);
+        state->ring_pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
+                                                               "assets/shaders/rings.frag.spv",
+                                                               GAME_CULL_MODE_NONE,
+                                                               GAME_BLEND_MODE_ALPHA);
 
 #if 0
         Entity *mercury = AddEntity(state);
@@ -354,35 +383,26 @@ void UpdateAndRender(Game_Platform *platform) {
                                                             GAME_BLEND_MODE_OPAQUE);
         jupiter->texture_handles[0] = platform->LoadImageFile("assets/images/jupiter.jpg");
 
+#endif
+
         // ------------------------------------------
         Entity *saturn = AddEntity(state);
         saturn->type = ENTITY_PLANET;
-        saturn->position = Vector3d(1432041000000.0, 0.0, 0.0);
+        saturn->position = Vector3d(1.0, 1.0, 1.0);
         saturn->axial_tilt = 0.4665f;
         saturn->scale = Vector3(60268000.0f, 54364000.0f, 60268000.0f);
         saturn->angular_velocity = (2.0 * PI) / 38520.0;
-        saturn->mesh = LoadOBJ(platform, "assets/models/sphere.obj");
-        saturn->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                           "assets/shaders/planet.frag.spv",
-                                                           GAME_CULL_MODE_BACK,
-                                                           GAME_BLEND_MODE_OPAQUE);
-        saturn->texture_handles[0] = platform->LoadImageFile("assets/images/saturn.jpg");
-        saturn->has_atmosphere = True;
+        saturn->pipeline_handle = state->planet_pipeline_handle;
+        saturn->texture_handles[TEXTURE_INDEX_SURFACE] = platform->LoadImageFile("assets/images/saturn.jpg");
+        saturn->texture_handles[TEXTURE_INDEX_RING_TEXTURE] = platform->LoadImageFile("assets/images/saturn_ring.png");
+
         saturn->atmosphere_color = Vector3(0.85f, 0.75f, 0.60f);
         saturn->atmosphere_intensity = 0.6f;
 
-        Entity *rings = AddEntity(state);
-        rings->type = ENTITY_PLANET;
-        rings->position = saturn->position;
-        rings->axial_tilt = saturn->axial_tilt;
-        rings->scale = Vector3(60268000.0f, 60268000.0f, 60268000.0f);
-        rings->angular_velocity = saturn->angular_velocity;
-        rings->mesh = LoadOBJ(platform, "assets/models/rings.obj");
-        rings->pipeline_handle = platform->CreatePipeline("assets/shaders/planet.vert.spv",
-                                                          "assets/shaders/rings.frag.spv",
-                                                          GAME_CULL_MODE_NONE,
-                                                          GAME_BLEND_MODE_ALPHA);
-        rings->texture_handles[0] = platform->LoadImageFile("assets/images/saturn_ring.png");
+        saturn->ring_inner_radius = 74500000.0f;
+        saturn->ring_outer_radius = 140180000.0f;
+        saturn->ring_normal = Vector3(Sin(saturn->axial_tilt), Cos(saturn->axial_tilt), 0.0f);
+#if 0
 
         // ------------------------------------------
         Entity *uranus = AddEntity(state);
@@ -420,10 +440,10 @@ void UpdateAndRender(Game_Platform *platform) {
         neptune->atmosphere_intensity = 0.8f;
 #endif
 
-        state->position = Vector3d(1.0, -3389502.0, 1.0);
+        state->position = Vector3d(-40000000.0, -40000000.0, -40000000.0);
+        state->yaw = -3.0f * (PI / 4.0f);
+        state->pitch = 0.6155f;
         state->velocity = Vector3d(0.0, 0.0, 0.0);
-        state->yaw = 0.0f;
-        state->pitch = 0.0f;
         state->grounded = False;
 
         // this must always be here!
@@ -493,7 +513,7 @@ void UpdateAndRender(Game_Platform *platform) {
 
             const Vec3 up = Vector3(0, -1, 0);
 
-            const float speed = 50000.0f * platform->delta_time;
+            const float speed = 500000000.0f * platform->delta_time;
 
             Vec3 direction = Vector3(0, 0, 0);
 
@@ -560,57 +580,88 @@ void UpdateAndRender(Game_Platform *platform) {
     for (int i = 0; i < state->entity_count; ++i) {
         const Entity *entity = &state->entities[i];
 
-        if (entity->active && entity->type == ENTITY_PLANET) {
-            const Vec3d relative_position = Vec3d_Sub(entity->position, state->position);
-            const Vec3 render_position = Vec3d_Cast32(relative_position);
+        const Vec3d relative_position = Vec3d_Sub(entity->position, state->position);
+        const Vec3 render_position = Vec3d_Cast32(relative_position);
 
-            const float rotation_angle = (float) (platform->elapsed_time * entity->angular_velocity);
+        const float rotation_angle = (float) (platform->elapsed_time * entity->angular_velocity);
 
-            const Mat4X4 transform = Matrix_Multiply(
-                Matrix_Translation(render_position),
+        const Mat4X4 transform = Matrix_Multiply(
+            Matrix_Translation(render_position),
+            Matrix_Multiply(
+                Matrix_RotationZ(entity->axial_tilt),
                 Matrix_Multiply(
-                    Matrix_RotationZ(entity->axial_tilt),
-                    Matrix_Multiply(
-                        Matrix_RotationY(rotation_angle),
-                        Matrix_Scale(entity->scale)
-                    )
+                    Matrix_RotationY(rotation_angle),
+                    Matrix_Scale(entity->scale)
                 )
-            );
+            )
+        );
 
-            Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, state->sphere.vertices,
-                                                               state->sphere.vertex_count, state->sphere.indices,
-                                                               state->sphere.index_count);
-            if (entry) {
-                entry->mesh.transform = transform;
-                entry->mesh.pipeline_handle = entity->pipeline_handle;
-                for (int j = 0; j < 4; ++j) {
-                    entry->mesh.texture_handles[j] = entity->texture_handles[j];
+        if (entity->active) {
+            switch (entity->type) {
+                case ENTITY_PLANET: {
+                    Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, state->sphere.vertices,
+                                                                       state->sphere.vertex_count,
+                                                                       state->sphere.indices,
+                                                                       state->sphere.index_count);
+                    if (entry) {
+                        entry->mesh.transform = transform;
+                        entry->mesh.pipeline_handle = entity->pipeline_handle;
+                        for (int j = 0; j < 4; ++j) {
+                            entry->mesh.texture_handles[j] = entity->texture_handles[j];
+                        }
+
+                        Game_PushVertexUniformMat4X4(entry, Matrix_Multiply(platform->view_projection, transform));
+                        // mvp
+                        Game_PushVertexUniformMat4X4(entry, transform); // model
+
+                        Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f);
+                        // sun_direction
+                        Game_PushFragmentUniformVec4(entry, Vector4(entity->overlay_strength, entity->overlay_scroll,
+                                                                    0.0f,
+                                                                    0.0f)); // overlay
+                        Game_PushFragmentUniformVec4(entry, Vector4(entity->atmosphere_color.x,
+                                                                    entity->atmosphere_color.y,
+                                                                    entity->atmosphere_color.z,
+                                                                    entity->atmosphere_intensity)); // atmosphere
+                        Game_PushFragmentUniformVec4(entry, Vector4(entity->specular_strength,
+                                                                    entity->specular_shininess,
+                                                                    entity->specular_whiteness,
+                                                                    0.0f)); // specular
+                    }
+
+                    if (entity->ring_inner_radius > 0.0f) {
+                        Game_RenderEntry *entry = Game_PushMeshRenderEntry(platform, state->annulus.vertices,
+                                                                           state->annulus.vertex_count,
+                                                                           state->annulus.indices,
+                                                                           state->annulus.index_count);
+
+                        if (entry) {
+                            entry->mesh.transform = transform;
+                            entry->mesh.pipeline_handle = state->ring_pipeline_handle;
+                            entry->mesh.texture_handles[0] = entity->texture_handles[TEXTURE_INDEX_RING_TEXTURE];
+
+                            Game_PushVertexUniformMat4X4(entry, Matrix_Multiply(platform->view_projection, transform));
+                            Game_PushVertexUniformMat4X4(entry, transform);
+
+                            Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f);
+                            Game_PushFragmentUniformVec4(entry, Vector4(render_position.x, render_position.y,
+                                                                        render_position.z, entity->scale.x));
+                        }
+                    }
                 }
+                break;
 
-                Game_PushVertexUniformMat4X4(entry, Matrix_Multiply(platform->view_projection, entry->mesh.transform));
-                // mvp
-                Game_PushVertexUniformMat4X4(entry, entry->mesh.transform); // model
-
-                Game_PushFragmentUniformVec3(entry, Vec3d_DirectionToOrigin(entity->position), 0.0f); // sun_direction
-                Game_PushFragmentUniformVec4(entry, Vector4(entity->overlay_strength, entity->overlay_scroll, 0.0f,
-                                                            0.0f)); // overlay
-                Game_PushFragmentUniformVec4(entry, Vector4(entity->atmosphere_color.x, entity->atmosphere_color.y,
-                                                            entity->atmosphere_color.z,
-                                                            entity->atmosphere_intensity)); // atmosphere
-                Game_PushFragmentUniformVec4(entry, Vector4(entity->specular_strength,
-                                                            entity->specular_shininess,
-                                                            entity->specular_whiteness,
-                                                            0.0f)); // specular
-#if 0
-                const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
-                entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
-                entry->mesh.fragment_uniforms[1] = d.x;
-                entry->mesh.fragment_uniforms[2] = d.y;
-                entry->mesh.fragment_uniforms[3] = d.z;
-                entry->mesh.fragment_uniforms[4] = (float) (platform->elapsed_time * entity->angular_velocity);
-                entry->mesh.fragment_uniform_count = 5;
-#endif
+                default: break;
             }
+#if 0
+            const Vec3 d = Vec3_Normalize(Vec3d_Cast32(Vec3d_Sub(state->position, entity->position)));
+            entry->mesh.fragment_uniforms[0] = (float) platform->elapsed_time;
+            entry->mesh.fragment_uniforms[1] = d.x;
+            entry->mesh.fragment_uniforms[2] = d.y;
+            entry->mesh.fragment_uniforms[3] = d.z;
+            entry->mesh.fragment_uniforms[4] = (float) (platform->elapsed_time * entity->angular_velocity);
+            entry->mesh.fragment_uniform_count = 5;
+#endif
         }
     }
 }

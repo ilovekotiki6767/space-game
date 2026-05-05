@@ -1,6 +1,17 @@
 #version 450
 
-#include "ubo.glsl"
+layout (set = 3, binding = 0) uniform fragment_uniforms {
+    /// normalized direction from the planet to the origin
+    /// `w` is unused
+    vec4 sun_direction;
+    /// `x` is strength, `y` is the scroll speed and everything else is unused
+    vec4 overlay;
+    /// `xyz` is atmosphere color and `w` is intensity
+    vec4 atmosphere;
+    /// `x` is specular strength, `y` is shininess
+    /// `z` is normalized tint-to-white factor and `w` is unused
+    vec4 specular;
+} u;
 
 layout (location = 0) in vec3 input_world_normal;
 layout (location = 1) in vec4 input_color;

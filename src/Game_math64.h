@@ -34,4 +34,8 @@ static Vec3 Vec3d_DirectionToOrigin(const Vec3d from) {
     return Vec3_Normalize(Vec3_Negate(Vec3d_Cast32(from)));
 }
 
+static double Vec3d_Magnitude(const Vec3d vec) {
+    return Sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+}
+
 #endif //GAMING_GAME_MATH64_H
