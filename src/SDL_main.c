@@ -836,7 +836,7 @@ int main(void) {
                                                      .type = SDL_GPU_TEXTURETYPE_2D,
                                                      .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
                                                      .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-                                                     .width = width, .height = height,
+                                                     .width = 1280, .height = 720,
                                                      .layer_count_or_depth = 1, .num_levels = 1,
                                                      .sample_count = SDL_GPU_SAMPLECOUNT_1,
                                                  });

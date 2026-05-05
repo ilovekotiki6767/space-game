@@ -288,7 +288,7 @@ void UpdateAndRender(Game_Platform *platform) {
                                                                GAME_CULL_MODE_NONE,
                                                                GAME_BLEND_MODE_ALPHA, 0);
 
-        state->offscreen_render_target = platform->CreateRenderTarget(Vector2(platform->width, platform->height));
+        state->offscreen_render_target = platform->CreateRenderTarget(Vector2(1280, 720));
         state->quantize_pipeline_handle = platform->CreatePipeline("assets/shaders/postprocess/fullscreen.vert.spv",
                                                                   "assets/shaders/postprocess/quantize.frag.spv",
                                                                   GAME_CULL_MODE_NONE,
@@ -577,7 +577,7 @@ void UpdateAndRender(Game_Platform *platform) {
             }
 
             platform->view_projection = Matrix_Multiply(
-                Matrix_Perspective(PI / 3.0f, platform->width / platform->height, 1.0f, 1000000000000.0f),
+                Matrix_Perspective(PI / 3.0f, 1280.0f / 720.0f, 1.0f, 1000000000000.0f),
                 Matrix_LookAt(Vector3(0, 0, 0), forward, Vector3(0, 1, 0))
             );
         }

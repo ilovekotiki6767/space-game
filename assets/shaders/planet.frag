@@ -53,9 +53,7 @@ void main() {
     float n_dot_v = max(dot(N, V), 0.0);
     float n_dot_h = max(dot(N, H), 0.0);
 
-    float threshold = bayer8x8(ivec2(gl_FragCoord.xy)) - 0.5;
-    float lit = n_dot_l + threshold * /* the width of the dithered band around n_dot_l = 0 */ 0.25;
-    lit = floor(clamp(lit, 0.0, 1.0) + 0.5);
+    float lit = smoothstep(-0.05, 0.05, dot(N, L));
 
     float limb = pow(n_dot_v, 0.5);
 
