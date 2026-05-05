@@ -28,7 +28,7 @@ set(SHADER_SOURCES
     assets/shaders/rings.frag
     # postprocessing
     assets/shaders/postprocess/fullscreen.vert
-        assets/shaders/postprocess/quantize.frag
+    assets/shaders/postprocess/quantize.frag
 )
 
 set(SHADER_OUTPUTS "")
