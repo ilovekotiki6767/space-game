@@ -179,13 +179,13 @@ typedef struct {
 
     Game_ButtonState input[GAME_KEY_COUNT];
 
-    Vertex transient_vertices[16384 * 4];
+    Vertex *transient_vertices;
     int transient_vertex_count;
 
-    unsigned short transient_indices[32768 * 4];
+    unsigned short *transient_indices;
     int transient_index_count;
 
-    Game_RenderEntry render_entries[1024];
+    Game_RenderEntry render_entries[2048];
     int render_entry_count;
 
     float delta_time;
@@ -242,9 +242,8 @@ static void Game_PushFragmentUniformVec3(Game_RenderEntry *entry, const Vec3 vec
 static Game_RenderEntry *Game_PushMeshRenderEntry(Game_Platform *platform, const Vertex *vertices,
                                                   const int vertex_count, const unsigned short *indices,
                                                   const int index_count) {
-    if (platform->render_entry_count < ArrayCount(platform->render_entries) &&
-        platform->transient_vertex_count + vertex_count <= ArrayCount(platform->transient_vertices) &&
-        platform->transient_index_count + index_count <= ArrayCount(platform->transient_indices)) {
+    if (platform->render_entry_count < ArrayCount(platform->render_entries) && platform->transient_vertex_count +
+        vertex_count <= 65536 && platform->transient_index_count + index_count <= 131072) {
         Game_RenderEntry *entry = &platform->render_entries[platform->render_entry_count++];
 
         entry->type = GAME_RENDER_ENTRY_MESH;

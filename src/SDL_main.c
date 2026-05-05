@@ -610,19 +610,19 @@ int main(void) {
 
     vertex_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                             .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                            .size = Megabytes(1),
+                                            .size = Megabytes(64),
                                         });
 
     index_buffer = SDL_CreateGPUBuffer(device, &(SDL_GPUBufferCreateInfo){
                                            .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-                                           .size = Megabytes(1),
+                                           .size = Megabytes(16),
                                        });
 
     SDL_GPUTransferBuffer *transfer_buffer = SDL_CreateGPUTransferBuffer(
         device, &(SDL_GPUTransferBufferCreateInfo){
             .usage =
             SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-            .size = Megabytes(1) + Megabytes(1),
+            .size = Megabytes(64) + Megabytes(16),
         });
 
     texture_sampler = SDL_CreateGPUSampler(device, &(SDL_GPUSamplerCreateInfo){
@@ -690,6 +690,9 @@ int main(void) {
 
     InitializeArena(&platform.permanent_memory, permanent_storage, permanent_storage_size);
     InitializeArena(&platform.transient_memory, transient_storage, transient_storage_size);
+
+    platform.transient_vertices = (Vertex *) transient_storage;
+    platform.transient_indices = (unsigned short *) (platform.transient_vertices + 65536);
 
     GameCode game_code = LoadGameCode(GAME_LIB_PATH);
 
